@@ -1,7 +1,7 @@
-# UniLove
-## A Dating App for Unity University Students
+# MicroFinance Solution
+## A Comprehensive Microfinance Web and Mobile Application
 
-UniLove is a dating web application tailored specifically for Unity University students, providing a platform for users to connect based on shared interests and hobbies.
+MicroFinance Solution is a web and mobile application designed to provide microfinance services, enabling users to access financial resources efficiently.
 
 ## Table of Contents
 
@@ -15,18 +15,27 @@ UniLove is a dating web application tailored specifically for Unity University s
 
 ## Features
 
-- User registration and authentication
-- Profile creation with interests and hobbies
-- User matching based on shared interests
-- Secure session management
+- User authentication and profile management
+- Loan application and approval system
+- Payment tracking and transaction history
+- Secure data encryption and session management
+- Mobile-first design with Flutter
 
 ## Technologies Used
 
+### Backend (Flask)
 - Flask for backend development
 - SQLAlchemy for database interactions
 - MySQL as the database
 - bcrypt for password hashing
-- Docker for containerization (if applicable)
+- Flask-JWT-Extended for authentication
+
+### Mobile (Flutter)
+- Dart programming language
+- Provider for state management
+- Dio for API requests
+- Shared Preferences for local storage
+- Firebase for push notifications (if applicable)
 
 ## Installation
 
@@ -34,76 +43,104 @@ UniLove is a dating web application tailored specifically for Unity University s
 
 - Python 3.8 or higher
 - MySQL server
-- Virtual Environment (optional but recommended)
+- Flutter SDK
+- Virtual Environment (recommended for Python)
 
-# Quick Start
+## Backend Installation (Flask)
 
-* This guide will show you how to set up a simple application using Flask and MySQL.
+### 1. Create a Virtual Environment
 
-## Installation
+```sh
+python3 -m venv venv
+```
 
-* ### 1. Create a Virtual Environment
-    * It’s a good practice to create a virtual environment for your project. You can do this with the following command:
+Activate the virtual environment:
+- **Windows:**
+  ```sh
+  venv\Scripts\activate
+  ```
+- **macOS/Linux:**
+  ```sh
+  source venv/bin/activate
+  ```
 
-            python3 -m venv venv
+### 2. Install Required Packages
 
+```sh
+pip install -r requirements.txt
+```
 
-    * Activate the virtual environment:
-        * Windows:
-                    venv\Scripts\activate
-          
-        * macOS/Linux:
-                    source venv/bin/activate
+### 3. Configure MySQL
 
+Start MySQL and create the database:
 
-* ### 2. Install Required package in requirements.txt
-    * After activating your virtual environment, install Flask and the required packages using pip:
+```sql
+CREATE DATABASE microfinance_db;
+CREATE USER 'microfinance_user'@'localhost' IDENTIFIED BY 'securepassword';
+GRANT ALL PRIVILEGES ON microfinance_db.* TO 'microfinance_user'@'localhost';
+FLUSH PRIVILEGES;
+```
 
-            pip install -r requirements.txt
+### 4. Configure Flask Application
 
+Update `config.py` with MySQL credentials:
 
-    * You may also want to install other packages, depending on your project’s needs.
+```python
+app.config['MYSQL_HOST'] = 'localhost'
+app.config['MYSQL_USER'] = 'microfinance_user'
+app.config['MYSQL_PASSWORD'] = 'securepassword'
+app.config['MYSQL_DB'] = 'microfinance_db'
+```
 
-* ### 3. Create a Database and Configure MySQL
-    * Install MySQL if you haven’t already. Follow the official [MySQL installation guide](https://dev.mysql.com/doc/refman/8.0/en/installing.html).
+### 5. Run Flask Application
 
-    * Start the MySQL server and log in:
+```sh
+python3 -m app.v1.app
+```
 
-            mysql -u root -p
+## Mobile Installation (Flutter)
 
+### 1. Install Flutter SDK
+Follow the official [Flutter installation guide](https://flutter.dev/docs/get-started/install).
 
-    * Create a database for your application:
+### 2. Clone the Repository
 
-            CREATE DATABASE your_database_name;
-      
+```sh
+git clone https://github.com/your-username/microfinance-solution.git
+cd microfinance-solution/mobile
+```
 
-    * Create a user and grant privileges (replace your_user and your_password):
+### 3. Install Dependencies
 
-            CREATE USER 'your_user'@'localhost' IDENTIFIED BY 'your_password';
-      GRANT ALL PRIVILEGES ON your_database_name.* TO 'your_user'@'localhost';
-      FLUSH PRIVILEGES;
+```sh
+flutter pub get
+```
 
+### 4. Run the Application
 
-* ### 4. Configure Your Flask Application
-    * In your Flask application, configure the MySQL connection in your config file or directly in your app:
+For Android:
+```sh
+flutter run
+```
 
-            from flask import Flask
-            from flask_mysqldb import MySQL
+For iOS:
+```sh
+flutter run --no-sound-null-safety
+```
 
-            app = Flask(__name__)
+## API Endpoints
 
-      # MySQL Configuration
-     
-            app.config['MYSQL_HOST'] = 'localhost'
-          app.config['MYSQL_USER'] = 'your_user'
-          app.config['MYSQL_PASSWORD'] = 'your_password'
-          app.config['MYSQL_DB'] = 'your_database_name'
+Refer to `API_DOCS.md` for detailed API documentation.
 
-          mysql = MySQL(app)
+## Contributing
 
+1. Fork the repository
+2. Create a new branch (`git checkout -b feature-branch`)
+3. Commit changes (`git commit -m "Added new feature"`)
+4. Push to branch (`git push origin feature-branch`)
+5. Open a Pull Request
 
-* ### 5. Run Your Flask Application
-    * To start your Flask application, use the following command:
+## License
 
-            python3 -m app.v1.app
-```bash
+This project is licensed under the MIT License. See `LICENSE` for more details.
+
