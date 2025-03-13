@@ -21,18 +21,18 @@ class DBStorage:
     __session = None
 
     def __init__(self):
-        UL_USER = getenv('UL_USER')
-        UL_PWD = getenv('UL_PWD')
-        UL_HOST = getenv('UL_HOST')
-        UL_DB = getenv('UL_DB')
-        HBNB_ENV = getenv('HBNB_ENV')
+        MFS_USER = getenv('MFS_USER')
+        MFS_PWD = getenv('MFS_PWD')
+        MFS_HOST = getenv('MFS_HOST')
+        MFS_DB = getenv('MFS_DB')
+        MFS_ENV = getenv('MFS_ENV')
         self.__engine = create_engine('mysql+pymysql://{}:{}@{}/{}'.
-                                      format(UL_USER,
-                                             UL_PWD,
-                                             UL_HOST,
-                                             UL_DB))
+                                      format(MFS_USER,
+                                             MFS_PWD,
+                                             MFS_HOST,
+                                             MFS_DB))
 
-        if HBNB_ENV == "test":
+        if MFS_ENV == "test":
             Base.metadata.drop_all(self.__engine)
 
     def all(self, cls=None):
