@@ -1,8 +1,3 @@
-#!/usr/bin/python3
-"""
-Contains class BaseModel
-"""
-
 from datetime import datetime, timezone
 import models
 from os import getenv
@@ -23,8 +18,8 @@ class BaseModel:
     """The BaseModel class from which future classes will be derived"""
     if models.storage_t == "db":
         id = Column(String(60), primary_key=True)
-        created_at = Column(DateTime, default=datetime.utcnow)
-        updated_at = Column(DateTime, default=datetime.utcnow)
+        created_at = Column(DateTime, default=datetime.now(timezone.utc), nullable=False)
+        updated_at = Column(DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc), nullable=False)
 
     def __init__(self, *args, **kwargs):
         """Initialization of the base model"""
@@ -32,29 +27,28 @@ class BaseModel:
             for key, value in kwargs.items():
                 if key != "__class__":
                     setattr(self, key, value)
-            if kwargs.get("created_at", None) and type(self.created_at) is str:
+            if kwargs.get("created_at", None) and isinstance(self.created_at, str):
                 self.created_at = datetime.strptime(kwargs["created_at"], time)
             else:
-                self.created_at = datetime.utcnow()
-            if kwargs.get("updated_at", None) and type(self.updated_at) is str:
+                self.created_at = datetime.now(timezone.utc)
+            if kwargs.get("updated_at", None) and isinstance(self.updated_at, str):
                 self.updated_at = datetime.strptime(kwargs["updated_at"], time)
             else:
-                self.updated_at = datetime.utcnow()
+                self.updated_at = datetime.now(timezone.utc)
             if kwargs.get("id", None) is None:
                 self.id = str(uuid.uuid4())
         else:
             self.id = str(uuid.uuid4())
-            self.created_at = datetime.utcnow()
+            self.created_at = datetime.now(timezone.utc)
             self.updated_at = self.created_at
 
     def __str__(self):
         """String representation of the BaseModel class"""
-        return "[{:s}] ({:s}) {}".format(self.__class__.__name__, self.id,
-                                         self.__dict__)
+        return "[{:s}] ({:s}) {}".format(self.__class__.__name__, self.id, self.__dict__)
 
     def save(self):
         """updates the attribute 'updated_at' with the current datetime"""
-        self.updated_at = datetime.utcnow()
+        self.updated_at = datetime.now(timezone.utc)
         models.storage.new(self)
         models.storage.save()
 
@@ -62,23 +56,20 @@ class BaseModel:
         """returns a dictionary containing all keys/values of the instance"""
         new_dict = self.__dict__.copy()
 
-    # Convert to datetime if they are strings
+        # Convert to datetime if they are strings
         if "created_at" in new_dict and isinstance(new_dict["created_at"], str):
             try:
-                # Attempt to parse the timestamp using the format with 'T'
                 new_dict["created_at"] = datetime.strptime(new_dict["created_at"], "%Y-%m-%dT%H:%M:%S.%f")
             except ValueError:
-                # Fallback to parse using the format with space
                 new_dict["created_at"] = datetime.strptime(new_dict["created_at"], "%Y-%m-%d %H:%M:%S.%f")
 
         if "updated_at" in new_dict and isinstance(new_dict["updated_at"], str):
             try:
-                # Attempt to parse the timestamp using the format with 'T'
                 new_dict["updated_at"] = datetime.strptime(new_dict["updated_at"], "%Y-%m-%dT%H:%M:%S.%f")
             except ValueError:
-                # Fallback to parse using the format with space
                 new_dict["updated_at"] = datetime.strptime(new_dict["updated_at"], "%Y-%m-%d %H:%M:%S.%f")
 
+        # Ensure that datetime fields are converted to strings in the proper format
         if "created_at" in new_dict:
             new_dict["created_at"] = new_dict["created_at"].strftime(time)
         if "updated_at" in new_dict:

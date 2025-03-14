@@ -40,8 +40,8 @@ Swagger(app)
 
 if __name__ == "__main__":
     """ Main Function """
-    host = environ.get('UL_API_HOST')
-    port = environ.get('UL_API_PORT')
+    host = environ.get('MFS_API_HOST')
+    port = environ.get('MFS_API_PORT')
     if not host:
         host = '0.0.0.0'
     if not port:

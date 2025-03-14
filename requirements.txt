@@ -16,7 +16,6 @@ jsonschema-specifications==2024.10.1
 MarkupSafe==3.0.2
 mistune==3.1.2
 packaging==24.2
-pep8==1.7.1
 pycparser==2.22
 pymongo==4.11.2
 PyMySQL==1.1.1

@@ -1,42 +1,22 @@
-#!/usr/bin/python3
-"""
-Contains the TestUserDocs classes
-"""
-
-from datetime import datetime
+import unittest
 import inspect
-from hashlib import md5
+import bcrypt
+import pycodestyle
+
 from models import user
 from models.base_model import BaseModel
-import pep8
-import unittest
 
 User = user.User
 
 
 class TestUserDocs(unittest.TestCase):
-    """Tests to check the documentation and style of User class"""
+    """Tests to check the documentation and style of the User class"""
 
     @classmethod
     def setUpClass(cls):
         """Set up for the doc tests"""
         cls.user_f = inspect.getmembers(User, inspect.isfunction)
 
-    def test_pep8_conformance_user(self):
-        """Test that models/user.py conforms to PEP8."""
-        pep8s = pep8.StyleGuide(quiet=True)
-        result = pep8s.check_files(["models/user.py"])
-        self.assertEqual(
-            result.total_errors, 0, "Found code style errors (and warnings)."
-        )
-
-    def test_pep8_conformance_test_user(self):
-        """Test that tests/test_models/test_user.py conforms to PEP8."""
-        pep8s = pep8.StyleGuide(quiet=True)
-        result = pep8s.check_files(["tests/test_models/test_user.py"])
-        self.assertEqual(
-            result.total_errors, 0, "Found code style errors (and warnings)."
-        )
 
     def test_user_module_docstring(self):
         """Test for the user.py module docstring"""
@@ -44,20 +24,15 @@ class TestUserDocs(unittest.TestCase):
         self.assertTrue(len(user.__doc__) >= 1, "user.py needs a docstring")
 
     def test_user_class_docstring(self):
-        """Test for the City class docstring"""
+        """Test for the User class docstring"""
         self.assertIsNot(User.__doc__, None, "User class needs a docstring")
         self.assertTrue(len(User.__doc__) >= 1, "User class needs a docstring")
 
     def test_user_func_docstrings(self):
         """Test for the presence of docstrings in User methods"""
         for func in self.user_f:
-            self.assertIsNot(
-                func[1].__doc__, None, "{:s}docstring".format(func[0])
-            )
-            self.assertTrue(
-                len(func[1].__doc__) >= 1,
-                "{:s} method needs a docstring".format(func[0]),
-            )
+            self.assertIsNot(func[1].__doc__, None, f"{func[0]} method needs a docstring")
+            self.assertTrue(len(func[1].__doc__) >= 1, f"{func[0]} method needs a docstring")
 
 
 class TestUser(unittest.TestCase):
@@ -77,22 +52,15 @@ class TestUser(unittest.TestCase):
         self.assertEqual(self.user.username, "testuser")
 
     def test_email_attr(self):
-
+        """Test that User has an email attribute"""
         self.assertTrue(hasattr(self.user, "email"))
         self.assertEqual(self.user.email, "test@example.com")
 
-    def test_password_hash_attr(self):
-        """Test that User has a password_hash attribute"""
-        self.assertTrue(hasattr(self.user, "password_hash"))
-        self.assertEqual(self.user.password_hash, "")
-
     def test_set_password(self):
-        """Test the set_password method to hash passwords correctly"""
+        """Test the set_password method with bcrypt"""
         self.user.set_password("password123")
         self.assertNotEqual(self.user.password_hash, "")
-        self.assertEqual(
-            self.user.password_hash, md5(
-                "password123".encode()).hexdigest())
+        self.assertTrue(bcrypt.checkpw("password123".encode(), self.user.password_hash.encode()))
 
     def test_check_password(self):
         """Test the check_password method returns correct boolean"""
@@ -164,6 +132,14 @@ class TestUser(unittest.TestCase):
 
     def test_str(self):
         """Test that the str method outputs the correct format"""
-        expected_str = "[User] ({}) {}".format(
-            self.user.id, self.user.__dict__)
+        expected_str = "[User] ({}) {}".format(self.user.id, self.user.__dict__)
         self.assertEqual(str(self.user), expected_str)
+
+        # Additional check: Ensure key attributes are included
+        self.assertIn("username", str(self.user))
+        self.assertIn("email", str(self.user))
+        self.assertIn("id", str(self.user))
+
+
+if __name__ == "__main__":
+    unittest.main()

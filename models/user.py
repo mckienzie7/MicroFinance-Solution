@@ -4,7 +4,8 @@
 from models.base_model import BaseModel, Base
 from sqlalchemy import Column, String, Integer, Text, Boolean, ForeignKey
 from sqlalchemy.orm import relationship
-from hashlib import md5
+
+import bcrypt
 
 
 class User(BaseModel, Base):
@@ -32,10 +33,14 @@ class User(BaseModel, Base):
 
     # Relationships
 
+
+
+
     def set_password(self, password):
-        """Hash the password for security"""
-        self.password_hash = md5(password.encode()).hexdigest()
+        """Hash password securely using bcrypt"""
+        salt = bcrypt.gensalt()
+        self.password_hash = bcrypt.hashpw(password.encode(), salt).decode()
 
     def check_password(self, password):
-        """Check the provided password against the stored hash"""
-        return self.password_hash == md5(password.encode()).hexdigest()
+        """Verify the provided password"""
+        return bcrypt.checkpw(password.encode(), self.password_hash.encode())
