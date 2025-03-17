@@ -2,3 +2,9 @@
 venv/
 __pycache__/
 *.pyc
+mysql_data/
+*.sqlite3
+
+# Ignore system and editor-specific files
+.idea/
+.DS_Store

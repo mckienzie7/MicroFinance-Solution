@@ -1,16 +1,19 @@
-from sqlalchemy import Column, Enum, JSON
-from models.base_model import BaseModel, Base
+#!/usr/bin/python3
+"""Admin Class"""
+
+
+from sqlalchemy import Column, Enum, JSON, ForeignKey,String
 from models.user import User
 from sqlalchemy.orm import relationship
 
-class Admin(BaseModel, Base, User):
+class Admin(User):
     """Admin Model"""
     __tablename__ = 'admins'
 
-    role = Column(Enum('super_admin', 'loan_officer', 'account_manager'), nullable=False)
-    permisssion = Column(JSON, nullable=False)
+    id = Column(String(60), ForeignKey('users.id'), primary_key=True)  # Explicit FK
 
-    #Relationship
-    loans = relationship("Loan",
-                         backref="admin",
-                         cascade="all, delete, delete-orphan")
+    role = Column(Enum('super_admin', 'loan_officer', 'account_manager'), nullable=False)
+    permission = Column(JSON, nullable=False)
+
+    # Relationship
+    loans = relationship("Loan", backref="admin", cascade="all, delete, delete-orphan")

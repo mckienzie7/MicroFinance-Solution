@@ -12,7 +12,7 @@ class Loan(BaseModel, Base):
     """Loan Model"""
     __tablename__ = 'loans'
 
-    admin_id = Column(String(60), ForeignKey('admin.id'), nullable=False)
+    admin_id = Column(String(60), ForeignKey('admins.id'), nullable=False)
     account_id = Column(String(60), ForeignKey('accounts.id'), nullable=False)
     amount = Column(Float, nullable=False)
     interest_rate = Column(Float, nullable=False)  # E.g., 5% interest

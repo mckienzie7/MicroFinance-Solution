@@ -1,0 +1,49 @@
+version: "3.8"
+
+services:
+  flask-app:
+    build:
+      context: .
+    container_name: microfinance-flask
+    ports:
+      - "${MFS_API_PORT}:${MFS_API_PORT}"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - MFS_API_HOST=${MFS_API_HOST}
+      - MFS_API_PORT=${MFS_API_PORT}
+    networks:
+      - app_network
+    env_file:
+      - .env
+
+  db:
+    image: mysql:8.0
+    container_name: microfinance-db
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: ${MFS_DB}
+      MYSQL_USER: ${MFS_USER}
+      MYSQL_PASSWORD: ${MFS_PWD}
+    command: --default-authentication-plugin=mysql_native_password
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql  # Mounting the initialization script
+    ports:
+      - "3306:3306"
+    networks:
+      - app_network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "microfinance-db"]
+      interval: 10s
+      retries: 5
+      start_period: 30s
+
+volumes:
+  mysql_data:
+
+networks:
+  app_network:
+    driver: bridge
