@@ -9,6 +9,7 @@ MicroFinance Solution is a web and mobile application designed to provide microf
 - [Technologies Used](#technologies-used)
 - [Installation](#installation)
 - [Usage](#usage)
+- [Docker Deployment](#docker-deployment)
 - [API Endpoints](#api-endpoints)
 - [Contributing](#contributing)
 - [License](#license)
@@ -20,6 +21,7 @@ MicroFinance Solution is a web and mobile application designed to provide microf
 - Payment tracking and transaction history
 - Secure data encryption and session management
 - Mobile-first design with Flutter
+- Containerized deployment with Docker
 
 ## Technologies Used
 
@@ -29,6 +31,7 @@ MicroFinance Solution is a web and mobile application designed to provide microf
 - MySQL as the database
 - bcrypt for password hashing
 - Flask-JWT-Extended for authentication
+- Docker for containerization
 
 ### Mobile (Flutter)
 - Dart programming language
@@ -44,6 +47,7 @@ MicroFinance Solution is a web and mobile application designed to provide microf
 - Python 3.8 or higher
 - MySQL server
 - Flutter SDK
+- Docker & Docker Compose
 - Virtual Environment (recommended for Python)
 
 ## Backend Installation (Flask)
@@ -128,6 +132,27 @@ For iOS:
 flutter run --no-sound-null-safety
 ```
 
+## Docker Deployment
+
+### 1. Build and Run the Application with Docker
+
+Ensure you have Docker and Docker Compose installed, then run:
+
+```sh
+docker-compose up --build
+```
+
+### 2. Stop the Containers
+
+```sh
+docker-compose down
+```
+
+### 3. Access the Application
+
+- Flask API: `http://localhost:5000`
+- MySQL: `localhost:3306`
+
 ## API Endpoints
 
 Refer to `API_DOCS.md` for detailed API documentation.
@@ -144,3 +169,8 @@ Refer to `API_DOCS.md` for detailed API documentation.
 
 This project is licensed under the MIT License. See `LICENSE` for more details.
 
+## Contact
+
+For support or questions, contact:  
+📧 Email: Michaelelsa12@gmail.com 
+🔗 GitHub: [Michael Solomin](https://github.com/Mckienzie7)
