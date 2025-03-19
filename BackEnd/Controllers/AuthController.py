@@ -8,7 +8,7 @@ from typing import Union
 from sqlalchemy.orm.exc import NoResultFound
 from models import storage
 from models.user import User
-from Controllers.UserControllers import UserController
+from BackEnd.Controllers.UserControllers import UserController
 
 
 def _hash_password(password) -> bytes:

@@ -6,10 +6,10 @@ from werkzeug import Response
 
 from models.user import User
 from models import storage
-from api.v1.views import app_views
+from BackEnd.api.v1.views import app_views
 from flask import abort, jsonify, make_response, request, redirect
 from flasgger.utils import swag_from
-from Controllers.AuthController import AuthController
+from BackEnd.Controllers.AuthController import AuthController
 @app_views.route('/users', methods=['GET'], strict_slashes=False)
 @swag_from('documentation/user/all_users.yml')
 def get_users():

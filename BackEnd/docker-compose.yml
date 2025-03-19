@@ -3,7 +3,7 @@ version: "3.8"
 services:
   flask-app:
     build:
-      context: .
+      context: ..
     container_name: microfinance-flask
     ports:
       - "${MFS_API_PORT}:${MFS_API_PORT}"
@@ -17,7 +17,7 @@ services:
     networks:
       - app_network
     env_file:
-      - .env
+      - ../.env
 
   db:
     image: mysql:8.0

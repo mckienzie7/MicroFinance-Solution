@@ -2,14 +2,11 @@
 """
 Contains the class Loan Controller
 """
-from datetime import datetime
 from models import storage
 from models.Loan import Loan
 from models.Account import Account
-from models.credit_score import CreditScore
 from sqlalchemy.orm.exc import NoResultFound
-from sqlalchemy.exc import InvalidRequestError
-from Controllers.LoanAuthController import LoanAuthController
+from BackEnd.Controllers.LoanAuthController import LoanAuthController
 
 
 class LoanController:

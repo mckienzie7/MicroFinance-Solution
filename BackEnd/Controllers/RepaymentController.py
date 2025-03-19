@@ -5,7 +5,7 @@ Contains the class Repayment Controller
 from models import storage
 from models.Repayment import Repayment
 from sqlalchemy.orm.exc import NoResultFound
-from Controllers.RepaymentAuthController import RepaymentAuthController
+from BackEnd.Controllers.RepaymentAuthController import RepaymentAuthController
 
 
 class RepaymentController:
