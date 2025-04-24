@@ -176,3 +176,79 @@ def logout() -> Response:
         abort(403)
     AuthController.destroy_session(user.id)
     return redirect("/")
+
+@app_views.route('/users/forgot-password', methods=['POST'], strict_slashes=False)
+@swag_from('documentation/user/forgot_password.yml', methods=['POST'])
+def forgot_password():
+    """
+    Request password reset
+    """
+    if not request.get_json():
+        return make_response(jsonify({'error': 'Not a JSON'}), 400)
+    
+    data = request.get_json()
+    email = data.get('email')
+    
+    if not email:
+        return make_response(jsonify({'error': 'Email is required'}), 400)
+    
+    # Find user by email
+    users = storage.all(User).values()
+    user = None
+    for u in users:
+        if u.email == email:
+            user = u
+            break
+    
+    if not user:
+        return make_response(jsonify({'error': 'User not found'}), 404)
+    
+    # Generate reset token (you can use a more secure method)
+    import secrets
+    reset_token = secrets.token_urlsafe(32)
+    user.reset_token = reset_token
+    storage.save()
+    
+    # TODO: Send email with reset link
+    # For now, we'll just return the token (in production, send via email)
+    reset_link = f"http://your-frontend-url/reset-password?token={reset_token}"
+    
+    return make_response(jsonify({
+        'message': 'Password reset link has been sent to your email',
+        'reset_link': reset_link  # Remove this in production
+    }), 200)
+
+@app_views.route('/users/reset-password', methods=['POST'], strict_slashes=False)
+@swag_from('documentation/user/reset_password.yml', methods=['POST'])
+def reset_password():
+    """
+    Reset password using token
+    ---
+    """
+    if not request.get_json():
+        return make_response(jsonify({'error': 'Not a JSON'}), 400)
+    
+    data = request.get_json()
+    token = data.get('token')
+    new_password = data.get('new_password')
+    
+    if not token or not new_password:
+        return make_response(jsonify({'error': 'Token and new password are required'}), 400)
+    
+    # Find user by reset token
+    users = storage.all(User).values()
+    user = None
+    for u in users:
+        if u.reset_token == token:
+            user = u
+            break
+    
+    if not user:
+        return make_response(jsonify({'error': 'Invalid or expired reset token'}), 404)
+    
+    # Update password and clear reset token
+    user.set_password(new_password)
+    user.reset_token = None
+    storage.save()
+    
+    return make_response(jsonify({'message': 'Password has been reset successfully'}), 200)
