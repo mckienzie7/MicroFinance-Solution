@@ -28,11 +28,10 @@ Authorization: Bearer <your_token>
 **Request Body:**
 ```json
 {
-  "first_name": "John",
-  "last_name": "Doe",
   "email": "john.doe@example.com",
   "password": "securepassword",
-  "phone": "+251912345678"
+  "username": "mnasd",
+  "admin" : True or False
 }
 ```
 
