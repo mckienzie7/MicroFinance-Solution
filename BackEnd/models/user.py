@@ -2,10 +2,10 @@
 """User Class"""
 
 from BackEnd.models.base_model import BaseModel, Base
-from sqlalchemy import Column, String, Integer, Text, Boolean, ForeignKey
+from sqlalchemy import Column, String, Integer, Text, Boolean
 from sqlalchemy.orm import relationship
-
 import bcrypt
+from BackEnd.models.Notification import Notification
 
 
 class User(BaseModel, Base):
@@ -17,7 +17,7 @@ class User(BaseModel, Base):
     email = Column(String(120), unique=True, nullable=False)
     password = Column(String(128), nullable=False)
     bio = Column(Text)
-    admin = Column(Boolean,nullable=True ,default=False)
+    admin = Column(Boolean, nullable=True, default=False)
     session_id = Column(String(250))
     reset_token = Column(String(250))
     gender = Column(String(10))
@@ -36,20 +36,15 @@ class User(BaseModel, Base):
                                 backref="user",
                                 cascade="all, delete, delete-orphan")
 
-    otp = relationship("otp",
-                                backref="user",
-                                cascade="all, delete, delete-orphan")
-
-    telebirr = relationship("telebirr",
+    otp = relationship("OTP",
                        backref="user",
                        cascade="all, delete, delete-orphan")
-
 
     def set_password(self, password):
         """Hash password securely using bcrypt"""
         salt = bcrypt.gensalt()
-        self.password_hash = bcrypt.hashpw(password.encode(), salt).decode()
+        self.password = bcrypt.hashpw(password.encode(), salt).decode()  # Store hash in password
 
     def check_password(self, password):
         """Verify the provided password"""
-        return bcrypt.checkpw(password.encode(), self.password_hash.encode())
+        return bcrypt.checkpw(password.encode(), self.password.encode())

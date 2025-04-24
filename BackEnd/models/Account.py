@@ -26,6 +26,6 @@ class Account(BaseModel, Base):
                          backref="account",
                          cascade="all, delete, delete-orphan")
 
-    telebirr = relationship("telebirr",
+    telebirr = relationship("Telebirr",
                             backref="user",
                             cascade="all, delete, delete-orphan")

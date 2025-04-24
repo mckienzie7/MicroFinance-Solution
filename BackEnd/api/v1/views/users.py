@@ -118,7 +118,7 @@ def put_user(user_id):
     return make_response(jsonify(user.to_dict()), 200)
 
 @app_views.route('/users/Register', methods=['POST'], strict_slashes=False)
-@swag_from('documentation/user/Register.yml', methods=['PUT'])
+@swag_from('documentation/user/Register.yml', methods=['POST'])
 def Register():
     """ Register a new user
     """
@@ -156,9 +156,10 @@ def login() -> tuple[Any, int] | Any:
         return jsonify({'message': 'No input data provided'}), 400
     email = data.get("email")
     password = data.get("password")
-    if not AuthController.valid_login(email, password):
+    auth = AuthController()
+    if not auth.valid_login(email, password):
         abort(401)
-    session_id = AuthController.create_session(email)
+    session_id = auth.create_session(email)
     resp = jsonify({"email": email, "message": "logged in"})
     resp.set_cookie("session_id", session_id)
     return resp

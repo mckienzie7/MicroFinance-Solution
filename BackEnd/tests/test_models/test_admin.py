@@ -1,6 +1,6 @@
 import unittest
 import inspect
-from BackEnd.models.admin import Admin
+from BackEnd.models.Admin import Admin
 from BackEnd.models.user import User
 from BackEnd.models.base_model import BaseModel
 

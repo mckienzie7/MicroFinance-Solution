@@ -24,7 +24,7 @@ def _generate_uuid() -> str:
 class AuthController:
     """AuthController class to interact with the authentication database."""
     def __init__(self):
-        """Intializes a new AuthController Instances"""
+        """Initializes a new AuthController instance"""
         self._db = storage
         self._userC = UserController()
 
@@ -34,7 +34,7 @@ class AuthController:
         try:
             new_user = self._userC.find_user_by(email=email)
         except NoResultFound:
-            return self._userC.add_user(username, email, _hash_password(password), admin)
+            return self._userC.add_user(username, email, password, admin)
         raise ValueError(f"User {email} already exists")
 
     def valid_login(self, email: str, password: str) -> bool:
@@ -45,7 +45,7 @@ class AuthController:
             if user is not None:
                 return bcrypt.checkpw(
                     password.encode("utf-8"),
-                    user.password_hash
+                    user.password.encode("utf-8")
                 )
         except NoResultFound:
             return False
@@ -62,7 +62,7 @@ class AuthController:
             return None
 
         session_id = _generate_uuid()
-        self._userC.update_user(user.id,session_id=session_id)
+        self._userC.update_user(user.id, session_id=session_id)
         return session_id
 
     def get_user_from_session_id(self, session_id: str) -> Union[User, None]:
@@ -106,8 +106,4 @@ class AuthController:
         if user is None:
             raise ValueError("Invalid reset token")
         new_password_hash = _hash_password(password)
-        self._db.update_user(
-            user.id,
-            hashed_password=new_password_hash,
-            reset_token=None,
-        )
+        self._userC.update_user(user.id, password=new_password_hash, reset_token=None)
