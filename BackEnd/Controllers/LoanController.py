@@ -2,9 +2,9 @@
 """
 Contains the class Loan Controller
 """
-from models import storage
-from models.Loan import Loan
-from models.Account import Account
+from BackEnd.models import storage
+from BackEnd.models.Loan import Loan
+from BackEnd.models.Account import Account
 from sqlalchemy.orm.exc import NoResultFound
 from BackEnd.Controllers.LoanAuthController import LoanAuthController
 

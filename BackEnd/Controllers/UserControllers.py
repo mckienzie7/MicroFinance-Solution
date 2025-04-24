@@ -2,17 +2,12 @@
 """
 Contains the class User Controller
 """
-from datetime import datetime
 
-from models.user import User
-from os import getenv
-from sqlalchemy import create_engine, tuple_
+from BackEnd.models.user import User
+from sqlalchemy import tuple_
 from sqlalchemy.exc import InvalidRequestError
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
 from sqlalchemy.orm.exc import NoResultFound
-from sqlalchemy.orm.session import Session
-from models import storage
+from BackEnd.models import storage
 class UserController:
     """
         - UserController class

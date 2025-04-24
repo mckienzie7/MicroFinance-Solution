@@ -3,8 +3,8 @@
 Contains the class Loan Authentication Controller
 """
 import uuid
-from models import storage
-from models.Loan import Loan
+from BackEnd.models import storage
+from BackEnd.models.Loan import Loan
 from sqlalchemy.orm.exc import NoResultFound
 
 

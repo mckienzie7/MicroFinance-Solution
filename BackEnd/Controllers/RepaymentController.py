@@ -2,8 +2,8 @@
 """
 Contains the class Repayment Controller
 """
-from models import storage
-from models.Repayment import Repayment
+from BackEnd.models import storage
+from BackEnd.models.Repayment import Repayment
 from sqlalchemy.orm.exc import NoResultFound
 from BackEnd.Controllers.RepaymentAuthController import RepaymentAuthController
 

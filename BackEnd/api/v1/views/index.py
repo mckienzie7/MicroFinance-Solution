@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 """ Index """
-from models.user import User
-from models import storage
+from BackEnd.models.user import User
+from BackEnd.models import storage
 from BackEnd.api.v1.views import app_views
 from flask import jsonify
 

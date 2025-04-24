@@ -2,8 +2,8 @@
 """
 Contains the class Transaction Controller
 """
-from models import storage
-from models.Transaction import Transaction
+from BackEnd.models import storage
+from BackEnd.models.Transaction import Transaction
 from sqlalchemy.orm.exc import NoResultFound
 from TransactionAuthController import TransactionAuthController
 

@@ -6,8 +6,8 @@ import bcrypt
 from uuid import uuid4
 from typing import Union
 from sqlalchemy.orm.exc import NoResultFound
-from models import storage
-from models.user import User
+from BackEnd.models import storage
+from BackEnd.models.user import User
 from BackEnd.Controllers.UserControllers import UserController
 
 

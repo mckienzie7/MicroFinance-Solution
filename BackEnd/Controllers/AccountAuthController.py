@@ -3,8 +3,8 @@
 Contains the class Account Authentication Controller
 """
 import uuid
-from models import storage
-from models.Account import Account
+from BackEnd.models import storage
+from BackEnd.models.Account import Account
 from sqlalchemy.orm.exc import NoResultFound
 
 

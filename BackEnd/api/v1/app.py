@@ -1,7 +1,8 @@
 
 #!/usr/bin/python3
 """ Flask Application """
-from models import storage
+
+from BackEnd.models import storage
 from BackEnd.api.v1.views import app_views
 from os import environ
 from flask import Flask, make_response, jsonify

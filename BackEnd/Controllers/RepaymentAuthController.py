@@ -2,10 +2,10 @@
 """
 Contains the class Repayment Authentication Controller
 """
-from models import storage
-from models.Loan import Loan
-from models.Account import Account
-from models.Repayment import Repayment
+from BackEnd.models import storage
+from BackEnd.models.Loan import Loan
+from BackEnd.models.Account import Account
+from BackEnd.models.Repayment import Repayment
 from sqlalchemy.orm.exc import NoResultFound
 
 

@@ -2,15 +2,14 @@
 """ console """
 
 import cmd
-from datetime import datetime
 import models
 from models.base_model import BaseModel
-from models.user import User
+from BackEnd.models.user import User
 from models.Account import Account
 from models.Admin import Admin
 from models.Customer import Customer
 from models.Loan import Loan
-from models.Repayment import Repayment
+from BackEnd.models.Repayment import Repayment
 from models.Transaction import Transaction
 import shlex  # for splitting the line along spaces except in double quotes
 from sqlalchemy.exc import IntegrityError

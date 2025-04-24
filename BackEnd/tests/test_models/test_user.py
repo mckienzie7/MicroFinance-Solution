@@ -1,10 +1,9 @@
 import unittest
 import inspect
 import bcrypt
-import pycodestyle
 
-from models import user
-from models.base_model import BaseModel
+from BackEnd.models import user
+from BackEnd.models.base_model import BaseModel
 
 User = user.User
 

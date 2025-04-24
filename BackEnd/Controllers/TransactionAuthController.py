@@ -2,11 +2,11 @@
 """
 Contains the class Transaction Authentication Controller
 """
-from models import storage
-from models.Account import Account
+from BackEnd.models import storage
+from BackEnd.models.Account import Account
 from sqlalchemy.orm.exc import NoResultFound
 
-from models.Transaction import Transaction
+from BackEnd.models.Transaction import Transaction
 
 
 class TransactionAuthController:

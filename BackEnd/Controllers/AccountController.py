@@ -2,9 +2,9 @@
 """
 Contains the class Account Controller
 """
-from models import storage
-from models.Account import Account
-from models.Transaction import Transaction
+from BackEnd.models import storage
+from BackEnd.models.Account import Account
+from BackEnd.models.Transaction import Transaction
 from sqlalchemy.orm.exc import NoResultFound
 from AccountAuthController import AccountAuthController
 

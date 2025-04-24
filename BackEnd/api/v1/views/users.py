@@ -4,8 +4,8 @@ from typing import Any
 
 from werkzeug import Response
 
-from models.user import User
-from models import storage
+from BackEnd.models.user import User
+from BackEnd.models import storage
 from BackEnd.api.v1.views import app_views
 from flask import abort, jsonify, make_response, request, redirect
 from flasgger.utils import swag_from
