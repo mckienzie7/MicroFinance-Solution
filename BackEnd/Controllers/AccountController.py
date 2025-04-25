@@ -7,6 +7,7 @@ from BackEnd.models.Account import Account
 from BackEnd.models.Transaction import Transaction
 from sqlalchemy.orm.exc import NoResultFound
 from AccountAuthController import AccountAuthController
+from typing import List
 
 
 class AccountController:
@@ -34,6 +35,56 @@ class AccountController:
         self.db.new(new_account)
         self.db.save()
         return new_account
+
+    def update_account(self, account: Account, data: dict, ignore: list = None) -> Account:
+        """
+        Update account details
+        Args:
+            account: The account to update
+            data: Dictionary containing fields to update
+            ignore: List of fields to ignore during update
+        Returns:
+            Updated account
+        """
+        if not account:
+            raise ValueError("Account not found")
+
+        if not self.auth.validate_active_account(account.id):
+            raise ValueError("Cannot update a non-active account")
+
+        if ignore is None:
+            ignore = []
+
+        for key, value in data.items():
+            if key not in ignore and hasattr(account, key):
+                setattr(account, key, value)
+
+        self.db.save()
+        return account
+
+    def delete_account(self, account: Account) -> None:
+        """
+        Delete an account
+        Args:
+            account: The account to delete
+        """
+        if not account:
+            raise ValueError("Account not found")
+
+        if not self.auth.validate_active_account(account.id):
+            raise ValueError("Cannot delete a non-active account")
+
+        # Check if account has any balance
+        if account.balance > 0:
+            raise ValueError("Cannot delete account with remaining balance")
+
+        # Check if account has any pending transactions
+        transactions = self.db.get_transactions_by_account(account.id)
+        if transactions:
+            raise ValueError("Cannot delete account with pending transactions")
+
+        self.db.delete(account)
+        self.db.save()
 
     def freeze_account(self, account_id: int) -> None:
         """Freeze an account (Admin only)"""
@@ -95,3 +146,16 @@ class AccountController:
         transaction = Transaction(account_id=from_account_id, amount=-amount, type="transfer")
         self.db.new(transaction)
         self.db.save()
+
+    def get_transactions_by_account(self, account_id: int) -> List[Transaction]:
+        """
+        Get all transactions for a specific account
+        Args:
+            account_id: The ID of the account to get transactions for
+        Returns:
+            List of Transaction objects
+        """
+        if not self.auth.validate_active_account(account_id):
+            raise ValueError("Cannot get transactions for a non-active account")
+
+        return self.db.get_transactions_by_account(account_id)

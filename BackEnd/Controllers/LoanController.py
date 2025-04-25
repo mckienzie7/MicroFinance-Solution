@@ -41,7 +41,7 @@ class LoanController:
 
         loan.status = "approved"
         account = self.db.get_by_user_id(Account, loan.user_id)
-        account.balance += loan.amount  # Credit the loan amount
+        account.balance += loan.amount
         self.db.save()
 
     def get_loans(self, user_id: int):
