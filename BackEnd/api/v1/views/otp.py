@@ -7,88 +7,113 @@ from BackEnd.models.otp import OTP
 from BackEnd.models import storage
 from BackEnd.api.v1.views import app_views
 from BackEnd.Controllers.OTPController import OTPController
+from sqlalchemy.orm.exc import NoResultFound
 
 @app_views.route('/otp/generate', methods=['POST'], strict_slashes=False)
 @swag_from('documentation/otp/generate_otp.yml')
 def generate_otp():
     """
-    Generates a new OTP for a user
+    Generate a new OTP
     """
     if not request.get_json():
         abort(400, description="Not a JSON")
 
-    required_fields = ['user_id', 'purpose']
+    required_fields = ['account_id', 'purpose']
     data = request.get_json()
     
     for field in required_fields:
         if field not in data:
             abort(400, description=f"Missing {field}")
 
-    controller = OTPController()
     try:
-        otp = controller.generate_otp(**data)
-        return make_response(jsonify(otp.to_dict()), 201)
-    except ValueError as e:
-        return make_response(jsonify({"error": str(e)}), 400)
+        controller = OTPController()
+        otp = controller.generate_otp(data['account_id'], data['purpose'])
+        
+        response = {
+            "otp": otp.to_dict(),
+            "message": "OTP generated successfully"
+        }
+        return make_response(jsonify(response), 201)
+    except NoResultFound as e:
+        return make_response(jsonify({"error": str(e)}), 404)
 
-@app_views.route('/otp/verify', methods=['POST'], strict_slashes=False)
-@swag_from('documentation/otp/verify_otp.yml')
-def verify_otp():
+@app_views.route('/otp/validate', methods=['POST'], strict_slashes=False)
+@swag_from('documentation/otp/validate_otp.yml')
+def validate_otp():
     """
-    Verifies an OTP
+    Validate an OTP
     """
     if not request.get_json():
         abort(400, description="Not a JSON")
 
-    required_fields = ['user_id', 'otp_code', 'purpose']
+    required_fields = ['account_id', 'otp_code', 'purpose']
     data = request.get_json()
     
     for field in required_fields:
         if field not in data:
             abort(400, description=f"Missing {field}")
 
-    controller = OTPController()
     try:
-        is_valid = controller.verify_otp(**data)
-        return make_response(jsonify({"valid": is_valid}), 200)
-    except ValueError as e:
-        return make_response(jsonify({"error": str(e)}), 400)
+        controller = OTPController()
+        is_valid = controller.validate_otp(
+            data['account_id'],
+            data['otp_code'],
+            data['purpose']
+        )
+        
+        if is_valid:
+            return make_response(jsonify({
+                "message": "OTP validated successfully",
+                "status": "valid"
+            }), 200)
+        else:
+            return make_response(jsonify({
+                "message": "Invalid OTP",
+                "status": "invalid"
+            }), 400)
+    except NoResultFound as e:
+        return make_response(jsonify({"error": str(e)}), 404)
+
+@app_views.route('/otp/status/<account_id>/<purpose>', methods=['GET'], strict_slashes=False)
+@swag_from('documentation/otp/get_otp_status.yml')
+def get_otp_status(account_id, purpose):
+    """
+    Get the status of the latest OTP for an account
+    """
+    try:
+        controller = OTPController()
+        status = controller.get_otp_status(account_id, purpose)
+        return make_response(jsonify(status), 200)
+    except NoResultFound as e:
+        return make_response(jsonify({"error": str(e)}), 404)
 
 @app_views.route('/otp/resend', methods=['POST'], strict_slashes=False)
 @swag_from('documentation/otp/resend_otp.yml')
 def resend_otp():
     """
-    Resends an OTP
+    Resend OTP for an account
     """
     if not request.get_json():
         abort(400, description="Not a JSON")
 
-    required_fields = ['user_id', 'purpose']
+    required_fields = ['account_id', 'purpose']
     data = request.get_json()
     
     for field in required_fields:
         if field not in data:
             abort(400, description=f"Missing {field}")
 
-    controller = OTPController()
     try:
-        otp = controller.resend_otp(**data)
-        return make_response(jsonify(otp.to_dict()), 200)
-    except ValueError as e:
-        return make_response(jsonify({"error": str(e)}), 400)
-
-@app_views.route('/otp/status/<user_id>', methods=['GET'], strict_slashes=False)
-@swag_from('documentation/otp/get_otp_status.yml')
-def get_otp_status(user_id):
-    """
-    Gets the status of the latest OTP for a user
-    """
-    controller = OTPController()
-    try:
-        status = controller.get_otp_status(user_id)
-        return make_response(jsonify(status), 200)
-    except ValueError as e:
-        return make_response(jsonify({"error": str(e)}), 400)
+        controller = OTPController()
+        otp = controller.resend_otp(data['account_id'], data['purpose'])
+        
+        response = {
+            "otp": otp.to_dict(),
+            "message": "OTP resent successfully"
+        }
+        return make_response(jsonify(response), 201)
+    except NoResultFound as e:
+        return make_response(jsonify({"error": str(e)}), 404)
 
 @app_views.route('/otp/expire/<otp_id>', methods=['PUT'], strict_slashes=False)
 @swag_from('documentation/otp/expire_otp.yml')

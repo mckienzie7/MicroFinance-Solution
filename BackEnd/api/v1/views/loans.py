@@ -3,7 +3,7 @@
 from typing import Any
 from flask import abort, jsonify, make_response, request
 from flasgger.utils import swag_from
-from BackEnd.models.loan import Loan
+from BackEnd.models.Loan import Loan
 from BackEnd.models import storage
 from BackEnd.api.v1.views import app_views
 from BackEnd.Controllers.LoanController import LoanController
@@ -70,7 +70,7 @@ def put_loan(loan_id):
     
     controller = LoanController()
     try:
-        updated_loan = controller.update_loan(loan, data, ignore)
+        updated_loan = controller.update_loan(loan, **data)
         return make_response(jsonify(updated_loan.to_dict()), 200)
     except ValueError as e:
         return make_response(jsonify({"error": str(e)}), 400)
