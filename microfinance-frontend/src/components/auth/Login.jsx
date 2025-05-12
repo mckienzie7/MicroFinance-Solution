@@ -55,16 +55,40 @@ const Login = () => {
     });
   };
 
+  // State to track login errors
+  const [loginError, setLoginError] = useState('');
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     
+    // Clear any previous errors
+    setLoginError('');
+    
     if (validateForm()) {
       try {
+        console.log('Submitting login form with:', formData);
         await login(formData);
-        // Login successful - redirection is handled in the useEffect
+        
+        // Force redirect after successful login
+        console.log('Login successful, manually redirecting...');
+        const redirectTo = role === 'admin' ? '/admin/dashboard' : '/user/dashboard';
+        console.log('Redirecting to:', redirectTo);
+        
+        // Short timeout to allow state to update before redirect
+        setTimeout(() => {
+          navigate(redirectTo, { replace: true });
+        }, 500);
       } catch (error) {
-        // Error is handled by the AuthContext
         console.error('Login error:', error);
+        
+        // Set a specific error message for incorrect credentials
+        if (error.message && error.message.includes('credentials')) {
+          setLoginError('Invalid email or password. Please try again.');
+        } else if (error.message) {
+          setLoginError(error.message);
+        } else {
+          setLoginError('Login failed. Please check your credentials and try again.');
+        }
       }
     }
   };
@@ -80,9 +104,11 @@ const Login = () => {
 
         <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
           <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
-            {(authError || showSessionExpired) && (
+            {(authError || showSessionExpired || loginError) && (
               <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-                {showSessionExpired ? 'Your session has expired. Please log in again.' : authError}
+                {showSessionExpired 
+                  ? 'Your session has expired. Please log in again.' 
+                  : loginError || authError}
               </div>
             )}
             

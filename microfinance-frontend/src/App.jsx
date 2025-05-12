@@ -3,6 +3,13 @@ import React, { useEffect, useState } from 'react';
 
 // Admin Pages
 import AdminDashboard from './pages/admin/Dashboard';
+import UserManagement from './pages/admin/UserManagement';
+import SavingsControl from './pages/admin/SavingsControl';
+import LoanApplications from './pages/admin/LoanApplications';
+import ApproveLoans from './pages/admin/ApproveLoans';
+import CompanyBalance from './pages/admin/CompanyBalance';
+import Reports from './pages/admin/Reports';
+import Settings from './pages/admin/Settings';
 import AdminLayout from './layouts/AdminLayout';
 import { AuthProvider } from './contexts/AuthContext';
 import DevLogin from './components/auth/DevLogin';
@@ -16,6 +23,12 @@ import ProtectedRoute from './components/common/ProtectedRoute';
 import Register from './components/auth/Register';
 // User Pages
 import UserDashboard from './pages/user/Dashboard';
+import SavingsAccount from './pages/user/SavingsAccount';
+import ApplyLoan from './pages/user/ApplyLoan';
+import MyLoans from './pages/user/MyLoans';
+import LoanRepayment from './pages/user/LoanRepayment';
+import CreditScore from './pages/user/CreditScore';
+import Profile from './pages/user/Profile';
 import UserLayout from './layouts/UserLayout';
 
 function App() {
@@ -41,7 +54,14 @@ function App() {
             <Route path="/admin" element={<ProtectedRoute allowedRoles={['admin']} />}>
               <Route element={<AdminLayout />}>
                 <Route path="dashboard" element={<AdminDashboard />} />
-                {/* Add more admin routes here */}
+                <Route path="users" element={<UserManagement />} />
+                <Route path="savings" element={<SavingsControl />} />
+                <Route path="loan-applications" element={<LoanApplications />} />
+                <Route path="approve-loans" element={<ApproveLoans />} />
+                <Route path="company-balance" element={<CompanyBalance />} />
+                <Route path="reports" element={<Reports />} />
+                <Route path="settings" element={<Settings />} />
+                <Route index element={<Navigate to="dashboard" />} />
               </Route>
             </Route>
 
@@ -49,7 +69,13 @@ function App() {
             <Route path="/user" element={<ProtectedRoute allowedRoles={['user']} />}>
               <Route element={<UserLayout />}>
                 <Route path="dashboard" element={<UserDashboard />} />
-                {/* Add more user routes here */}
+                <Route path="savings" element={<SavingsAccount />} />
+                <Route path="apply-loan" element={<ApplyLoan />} />
+                <Route path="loans" element={<MyLoans />} />
+                <Route path="pay-loan" element={<LoanRepayment />} />
+                <Route path="credit-score" element={<CreditScore />} />
+                <Route path="profile" element={<Profile />} />
+                <Route index element={<Navigate to="dashboard" />} />
               </Route>
             </Route>
 

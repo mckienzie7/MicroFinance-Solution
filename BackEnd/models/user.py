@@ -48,3 +48,13 @@ class User(BaseModel, Base):
     def check_password(self, password):
         """Verify the provided password"""
         return bcrypt.checkpw(password.encode(), self.password.encode())
+        
+    @classmethod
+    def get_user_by_email(cls, email):
+        """Retrieve a user by email"""
+        from BackEnd.models import storage
+        all_users = storage.all(cls)
+        for user in all_users.values():
+            if user.email == email:
+                return user
+        return None

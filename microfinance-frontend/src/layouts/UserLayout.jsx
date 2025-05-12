@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Outlet, NavLink, useNavigate } from 'react-router-dom';
+import { Outlet, NavLink, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import UserProfileDisplay from '../components/common/UserProfileDisplay';
 import { 
   HomeIcon, 
   CreditCardIcon, 
@@ -16,6 +17,9 @@ const UserLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  
+  // Debug logging for user object in UserLayout
+  console.log('UserLayout - User object:', user);
 
   const handleLogout = () => {
     logout();
@@ -55,12 +59,21 @@ const UserLayout = () => {
           </div>
           
           <div className="flex-1 h-0 pt-5 pb-4 overflow-y-auto">
-            <div className="flex-shrink-0 flex items-center px-4">
+
+          <div className="flex items-center justify-center">
+                                    <Link to="/" className="flex items-center">
+                                      
+                                      <span className="text-2xl font-bold bg-gradient-to-r from-gray-800 to-blue-400 bg-clip-text text-transparent">
+                                        MF-Solution
+                                      </span>
+                                    </Link>
+                                  </div>
+
+            <div className="flex-shrink-0 flex items-center justify-center px-4">
               <h1 className="text-xl font-bold">
-                <span className="text-blue-600">AI</span>
-                <span className="text-blue-800">Finance</span>
-                <span className="text-gray-900">Pro</span>
-                <span className="ml-1 text-sm text-gray-500">Portal</span>
+                
+              <span className="text-gray-900">User</span>
+              <span className="ml-1 text-sm text-gray-500">Portal</span>
               </h1>
             </div>
             <nav className="mt-5 px-2 space-y-1">
@@ -80,27 +93,8 @@ const UserLayout = () => {
           </div>
           
           <div className="flex-shrink-0 flex border-t border-gray-200 p-4">
-            <div className="flex-shrink-0 group block">
-              <div className="flex items-center">
-                <div>
-                  <div className="h-9 w-9 rounded-full bg-gray-300 flex items-center justify-center text-gray-600 font-semibold">
-                    {user?.firstName?.charAt(0)}{user?.lastName?.charAt(0)}
-                  </div>
-                </div>
-                <div className="ml-3">
-                  <p className="text-sm font-medium text-gray-700 group-hover:text-gray-900">
-                    {user?.firstName} {user?.lastName}
-                  </p>
-                  <button 
-                    onClick={handleLogout}
-                    className="text-xs font-medium text-gray-500 group-hover:text-gray-700 flex items-center"
-                  >
-                    <ArrowLeftOnRectangleIcon className="mr-1 h-4 w-4" />
-                    Logout
-                  </button>
-                </div>
-              </div>
-            </div>
+            <UserProfileDisplay user={user} onLogout={handleLogout} />
+            
           </div>
         </div>
         
@@ -113,11 +107,20 @@ const UserLayout = () => {
       <div className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0">
         <div className="flex-1 flex flex-col min-h-0 border-r border-gray-200 bg-white">
           <div className="flex-1 flex flex-col pt-5 pb-4 overflow-y-auto">
-            <div className="flex items-center flex-shrink-0 px-4">
+
+            <div className="flex items-center justify-center">
+                                    <Link to="/" className="flex items-center">
+                                      
+                                      <span className="text-2xl font-bold bg-gradient-to-r from-gray-800 to-blue-400 bg-clip-text text-transparent">
+                                        MF-Solution
+                                      </span>
+                                    </Link>
+                                  </div>
+
+            <div className="flex items-center justify-center flex-shrink-0 px-4">
               <h1 className="text-xl font-bold">
-                <span className="text-blue-600">AI</span>
-                <span className="text-blue-800">Finance</span>
-                <span className="text-gray-900">Pro</span>
+                
+                <span className="text-gray-900">User</span>
                 <span className="ml-1 text-sm text-gray-500">Portal</span>
               </h1>
             </div>
@@ -138,26 +141,8 @@ const UserLayout = () => {
           </div>
           
           <div className="flex-shrink-0 flex border-t border-gray-200 p-4">
-            <div className="flex-shrink-0 w-full group block">
-              <div className="flex items-center">
-                <div>
-                  <div className="h-9 w-9 rounded-full bg-gray-300 flex items-center justify-center text-gray-600 font-semibold">
-                    {user?.firstName?.charAt(0)}{user?.lastName?.charAt(0)}
-                  </div>
-                </div>
-                <div className="ml-3">
-                  <p className="text-sm font-medium text-gray-700 group-hover:text-gray-900">
-                    {user?.firstName} {user?.lastName}
-                  </p>
-                  <button 
-                    onClick={handleLogout}
-                    className="text-xs font-medium text-gray-500 group-hover:text-gray-700 flex items-center"
-                  >
-                    <ArrowLeftOnRectangleIcon className="mr-1 h-4 w-4" />
-                    Logout
-                  </button>
-                </div>
-              </div>
+            <div className="flex-shrink-0 w-full">
+              <UserProfileDisplay user={user} onLogout={handleLogout} />
             </div>
           </div>
         </div>

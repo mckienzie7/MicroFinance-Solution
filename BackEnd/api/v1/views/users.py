@@ -158,10 +158,49 @@ def login() -> tuple[Any, int] | Any:
     password = data.get("password")
     auth = AuthController()
     if not auth.valid_login(email, password):
-        abort(401)
+        return jsonify({'message': 'Invalid email or password. Please check your credentials.'}), 401
     session_id = auth.create_session(email)
-    resp = jsonify({"email": email, "message": "logged in"})
-    resp.set_cookie("session_id", session_id)
+    
+    # Get the user's username from the database using the AuthController
+    try:
+        # Find the user by email
+        user = auth._userC.find_user_by(email=email)
+        
+        # Print debug information
+        print(f"DEBUG - Found user: ID={user.id}, Username={user.username}, Email={user.email}")
+        
+        # Always use the actual username from the database
+        # This is what the user entered during registration
+        username = user.username
+        
+        # If username is None or empty, use a fallback
+        if not username:
+            username = email.split('@')[0]
+            print(f"DEBUG - Username was empty, using email prefix as fallback: {username}")
+        else:
+            print(f"DEBUG - Using actual username from database: {username}")
+    except Exception as e:
+        print(f"DEBUG - Error retrieving user: {e}")
+        username = email.split('@')[0]
+        print(f"DEBUG - Using email name as fallback: {username}")
+    
+    resp = jsonify({
+        "email": email, 
+        "username": username,
+        "message": "logged in"
+    })
+    # Set cookie with proper attributes for CORS
+    resp.set_cookie(
+        "session_id", 
+        session_id,
+        httponly=False,    # Allow JavaScript to access the cookie
+        samesite="Lax",   # More permissive for same-site requests
+        secure=False,     # Set to True in production with HTTPS
+        path="/"
+    )
+    # Set CORS headers explicitly
+    resp.headers.add('Access-Control-Allow-Credentials', 'true')
+    resp.headers.add('Access-Control-Allow-Origin', request.headers.get('Origin', '*'))
     return resp
 
 
@@ -172,11 +211,16 @@ def logout() -> Response:
     - logout user
     """
     session_id = request.cookies.get("session_id")
-    user = AuthController.get_user_from_session_id(session_id)
+    auth = AuthController()
+    user = auth.get_user_from_session_id(session_id)
     if user is None:
         abort(403)
-    AuthController.destroy_session(user.id)
-    return redirect("/")
+    auth.destroy_session(user.id)
+    
+    # Create a response that clears the session cookie
+    resp = jsonify({"message": "Logged out successfully"})
+    resp.set_cookie('session_id', '', expires=0)  # Clear the cookie
+    return resp
 
 @app_views.route('/users/forgot-password', methods=['POST'], strict_slashes=False)
 @swag_from('documentation/user/forgot_password.yml', methods=['POST'])

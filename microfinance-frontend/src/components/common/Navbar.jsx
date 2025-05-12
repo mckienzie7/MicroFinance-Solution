@@ -78,10 +78,12 @@ const Navbar = () => {
             {user ? (
               <div className="flex items-center gap-x-4">
                 <div className="flex items-center text-sm font-medium text-gray-700">
-                  <span className="mr-2">Welcome, {user.name}</span>
+                  <span className="mr-2">Welcome, </span>
                   <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
-                    {isAdmin ? 'Admin' : 'User'}
+                  {user?.username}
                   </span>
+               
+             
                 </div>
                 <button
                   onClick={handleLogout}
@@ -115,11 +117,13 @@ const Navbar = () => {
           <div className="fixed inset-0 z-50 bg-gray-900/50" onClick={closeMobileMenu} />
           <div className="fixed inset-y-0 left-0 z-50 w-full overflow-y-auto bg-white px-6 py-6 sm:max-w-sm sm:ring-1 sm:ring-gray-900/10">
             <div className="flex items-center justify-between">
-              <Link to="/" className="-m-1.5 p-1.5" onClick={closeMobileMenu}>
-                <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-blue-400 bg-clip-text text-transparent">
-                  MicroFinance Solution
-                </span>
-              </Link>
+            
+            <Link to="/" className="flex items-center">
+              <span className="text-2xl font-bold bg-gradient-to-r from-gray-800 to-blue-400 bg-clip-text text-transparent">
+                MF-Solution
+              </span>
+            </Link>
+          
               <button
                 type="button"
                 className="-m-2.5 rounded-md p-2.5 text-gray-700"
@@ -147,10 +151,17 @@ const Navbar = () => {
                   {user ? (
                     <div className="space-y-4">
                       <div className="flex items-center">
-                        <span className="mr-2 font-medium">Welcome, {user.name}</span>
+                        <span className="mr-2 font-medium">Welcome</span>
+
                         <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
-                          {isAdmin ? 'Admin' : 'User'}
+                          {user?.username}
                         </span>
+
+                        {/* <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                          {isAdmin ? 'Admin' : 'User'}
+                        </span> */}
+
+
                       </div>
                       <button
                         onClick={() => {
