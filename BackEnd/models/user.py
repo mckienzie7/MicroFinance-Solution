@@ -13,6 +13,8 @@ class User(BaseModel, Base):
 
     __tablename__ = "users"  # Specify table name if needed
     # Attributes
+    full_name = Column(String(100), nullable=False)
+    phone_number = Column(String(15), unique=True, nullable=False)
     username = Column(String(80), unique=True, nullable=False)
     email = Column(String(120), unique=True, nullable=False)
     password = Column(String(128), nullable=False)
