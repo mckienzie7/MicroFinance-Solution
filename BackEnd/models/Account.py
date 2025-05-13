@@ -11,12 +11,12 @@ class Account(BaseModel, Base):
     """Account Model"""
     __tablename__ = 'accounts'
 
-    customer_id = Column(String(60), ForeignKey('customers.id'), nullable=False)
+    user_id = Column(String(60), ForeignKey('users.id'), nullable=False)
     account_number = Column(String(20), unique=True, nullable=False)
     balance = Column(Float, default=0.00)
-    type = Column(String(50), nullable=False)  # e.g., 'savings', 'checking'
-    currency = Column(String(10), default='USD', nullable=False)
-    status = Column(String(10), default='active', nullable=False)
+    type = Column(String(50), nullable=False)
+    currency = Column(String(10), default='ETB')
+    status = Column(String(10), default='active')
     overdraft_limit = Column(Float, default=0.00)
 
     transactions = relationship("Transaction",

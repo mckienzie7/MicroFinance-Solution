@@ -2,13 +2,12 @@
 """
 Contains the class User Controller
 """
-
 from BackEnd.models.user import User
+from BackEnd.Controllers.AccountController import AccountController
 from sqlalchemy import tuple_
 from sqlalchemy.exc import InvalidRequestError
 from sqlalchemy.orm.exc import NoResultFound
 from BackEnd.models import storage
-
 
 class UserController:
     """
@@ -18,18 +17,36 @@ class UserController:
         """Initialize the UserController with a database connection"""
         self.db = storage
         self.__session = None
+        self.account_controller = AccountController()
 
-    def add_user(self, username: str, email: str, password: str, admin: bool) -> User:
+    def add_user(self, username: str, email: str, password: str, admin: bool = False) -> User:
         """Create a new user in the given Database"""
         try:
-            new_user = User(username=username, email=email, admin=admin)
-            new_user.set_password(password)  # Set the password using the set_password method
-            self.db.new(new_user)
+            # Create user
+            user = User(
+                username=username,
+                email=email,
+                admin=admin,
+                fullname=username,      # Empty string as default
+            )
+            
+            # Set password
+            user.set_password(password)
+            
+            # Save to database
+            self.db.new(user)
             self.db.save()
-        except Exception:
+
+            # If user is not an admin, create an account
+            if not admin:
+                self.account_controller.create_account(user.id, account_type='savings')
+
+        except Exception as e:
             self.db.Rollback()
-            new_user = None
-        return new_user
+            print(f"Error: {e}")
+            raise e
+
+        return user
 
     def find_user_by(self, **filters) -> User:
         """Find a user in the database based on filters."""
