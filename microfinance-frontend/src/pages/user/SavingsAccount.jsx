@@ -35,76 +35,96 @@ const SavingsAccount = () => {
     }
   }, [isAuthenticated, user]);
   
+  // Verify API endpoints are available
+  const verifyApiEndpoints = async () => {
+    try {
+      await api.get('/api/v1');
+      return true;
+    } catch (err) {
+      console.error('API verification failed:', err);
+      setError('Backend API is not available. Please ensure the server is running.');
+      return false;
+    }
+  };
+
+  // Fetch with retry for critical API calls
+  const fetchWithRetry = async (url, options = {}, retries = 2) => {
+    try {
+      return await api.get(url, options);
+    } catch (err) {
+      if (retries > 0) {
+        console.log(`Retrying ${url}, ${retries} attempts left`);
+        await new Promise(r => setTimeout(r, 1000));
+        return fetchWithRetry(url, options, retries - 1);
+      }
+      throw err;
+    }
+  };
+
   // Fetch account data and transaction history from API
   const fetchAccountData = async () => {
     setIsLoading(true);
     setError(null);
     
     try {
-      // Try to fetch from API first
-      try {
-        const customersResponse = await api.get('/customers');
-        const customers = customersResponse.data;
-        const customer = customers.find(c => c.email === user.email);
-        
-        if (customer) {
-          const accountsResponse = await api.get(`/customers/${customer.id}/accounts`);
-          const accounts = accountsResponse.data;
-          
-          if (accounts && accounts.length > 0) {
-            const savingsAccount = accounts.find(a => a.account_type === 'savings') || accounts[0];
-            setAccountData(savingsAccount);
-            setDepositForm(prev => ({ ...prev, account_id: savingsAccount.id }));
-            fetchTransactionHistory(savingsAccount.id);
-            return; // Exit early if API call succeeds
-          }
-        }
-      } catch (apiErr) {
-        console.log('API not available, using mock data');
-        // Continue to mock data if API fails
+      // Verify API is available
+      const apiAvailable = await verifyApiEndpoints();
+      if (!apiAvailable) {
+        return;
       }
       
-      // Use mock data if API fails or returns no data
-      const mockAccount = {
-        id: 'mock-account-1',
-        account_number: '1234567890',
-        account_type: 'savings',
-        balance: 1250.75,
-        interest_rate: 2.5,
-        status: 'active',
-        created_at: new Date().toISOString()
-      };
+      // Get customer ID
+      const customersResponse = await fetchWithRetry('/customers');
+      const customers = customersResponse.data;
+      const customer = customers.find(c => c.email === user.email);
       
-      setAccountData(mockAccount);
-      setDepositForm(prev => ({ ...prev, account_id: mockAccount.id }));
+      if (!customer) {
+        setError('Customer profile not found. Please update your profile first.');
+        return;
+      }
       
-      // Set mock transactions
-      const mockTransactions = [
-        {
-          id: 'mock-trans-1',
-          account_id: mockAccount.id,
-          amount: 500,
-          transaction_type: 'deposit',
-          description: 'Initial deposit',
-          status: 'completed',
-          created_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
-        },
-        {
-          id: 'mock-trans-2',
-          account_id: mockAccount.id,
-          amount: 750.75,
-          transaction_type: 'deposit',
-          description: 'Savings contribution',
-          status: 'completed',
-          created_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
-        }
-      ];
+      // Get accounts
+      const accountsResponse = await api.get(`/customers/${customer.id}/accounts`);
+      const accounts = accountsResponse.data;
       
-      setTransactions(mockTransactions);
+      if (!accounts || accounts.length === 0) {
+        setError('No savings accounts found for your profile.');
+        return;
+      }
+      
+      // Find savings account
+      const savingsAccount = accounts.find(a => a.account_type === 'savings') || accounts[0];
+      setAccountData(savingsAccount);
+      setDepositForm(prev => ({ ...prev, account_id: savingsAccount.id }));
+      
+      // Get transactions
+      await fetchTransactionHistory(savingsAccount.id);
       
     } catch (err) {
-      console.error('Error in fetchAccountData:', err);
-      setError('Failed to load account data. Please try again later.');
+      console.error('Error fetching account data:', err);
+      if (err.response) {
+        // Handle specific HTTP error responses
+        switch (err.response.status) {
+          case 404:
+            setError('API endpoint not found. Please ensure the backend server is properly configured.');
+            break;
+          case 401:
+          case 403:
+            setError('Authentication error. Please log in again.');
+            break;
+          case 500:
+            setError('Server error. Please try again later.');
+            break;
+          default:
+            setError(`Failed to load account data: ${err.response.data?.error || 'Unknown error'}`);
+        }
+      } else if (err.request) {
+        // Request was made but no response received
+        setError('No response from server. Please check your network connection.');
+      } else {
+        // Something else caused the error
+        setError('Failed to load account data. Please try again later.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -114,36 +134,33 @@ const SavingsAccount = () => {
     if (!accountId) return;
     
     try {
-      // Try to fetch from API first
-      try {
-        const transactionsResponse = await api.get(`/transactions/account/${accountId}`);
-        
-        if (transactionsResponse.data) {
-          // Filter for deposit/savings transactions
-          const savingsTransactions = transactionsResponse.data.filter(t => 
-            t.transaction_type === 'deposit' || 
-            t.description.toLowerCase().includes('saving')
-          );
-          
-          // Sort by date (newest first)
-          savingsTransactions.sort((a, b) => 
-            new Date(b.created_at) - new Date(a.created_at)
-          );
-          
-          setTransactions(savingsTransactions);
-          return; // Exit early if API call succeeds
-        }
-      } catch (apiErr) {
-        console.log('Transactions API not available, using mock data');
-        // Continue to mock data if API fails
+      const transactionsResponse = await api.get(`/transactions/account/${accountId}`);
+      const transactions = transactionsResponse.data;
+      
+      if (!transactions || transactions.length === 0) {
+        console.log('No transactions found for account', accountId);
+        setTransactions([]);
+        return;
       }
       
-      // We don't set mock transactions here since they're already set in fetchAccountData
-      // This function would only be called directly if the API was working
+      // Filter for deposit/savings transactions
+      const savingsTransactions = transactions.filter(t => 
+        t.transaction_type === 'deposit' || 
+        (t.description && t.description.toLowerCase().includes('saving'))
+      );
+      
+      // Sort by date (newest first)
+      savingsTransactions.sort((a, b) => 
+        new Date(b.created_at) - new Date(a.created_at)
+      );
+      
+      setTransactions(savingsTransactions);
       
     } catch (err) {
-      console.error('Error fetching transactions:', err);
-      // Don't show error for transactions, just log it
+      console.error('Error fetching transaction history:', err);
+      // Don't show error for transactions to avoid disrupting the main account view
+      // Just set empty transactions array
+      setTransactions([]);
     }
   };
 
@@ -175,67 +192,84 @@ const SavingsAccount = () => {
   const handleSubmitDeposit = async (e) => {
     e.preventDefault();
     
-    if (!validateForm()) {
+    // Validate form
+    const errors = validateForm();
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
       return;
     }
     
     setIsLoading(true);
     setError(null);
     setSuccessMessage('');
+    setFormErrors({});
     
     try {
-      const amount = parseFloat(depositForm.amount);
-      const description = depositForm.description || 'Savings deposit';
-      
-      // Try API endpoints first
-      try {
-        if (depositForm.account_id) {
-          // Try the deposit endpoint
-          const depositData = { amount };
-          await api.post(`/accounts/${depositForm.account_id}/deposit`, depositData);
-          
-          // Try to create a transaction record
-          const transactionData = {
-            account_id: depositForm.account_id,
-            amount,
-            transaction_type: 'deposit',
-            description,
-            status: 'completed'
-          };
-          await api.post('/transactions', transactionData);
-        }
-      } catch (apiErr) {
-        console.log('Deposit API not available, using mock data');
-        // Continue with mock data if API fails
+      // Verify API is available
+      const apiAvailable = await verifyApiEndpoints();
+      if (!apiAvailable) {
+        setError('Backend API is not available. Please try again later.');
+        return;
       }
       
-      // Update the UI with the new deposit (even if API failed)
-      if (accountData) {
-        // Update the account balance in the UI
-        const updatedBalance = (parseFloat(accountData.balance) || 0) + amount;
-        setAccountData(prev => ({ ...prev, balance: updatedBalance }));
-        
-        // Add the new transaction to the UI
-        const newTransaction = {
-          id: 'trans-' + Date.now(),
-          account_id: depositForm.account_id || 'mock-account-1',
-          amount,
-          transaction_type: 'deposit',
-          description,
-          status: 'completed',
-          created_at: new Date().toISOString()
-        };
-        
-        setTransactions(prev => [newTransaction, ...prev]);
-      }
+      // Prepare deposit data
+      const depositData = {
+        ...depositForm,
+        amount: parseFloat(depositForm.amount),
+        transaction_type: 'deposit'
+      };
       
-      // Reset form and show success message
+      // Submit deposit to API
+      const response = await api.post('/transactions', depositData);
+      
+      // Handle successful response
+      setSuccessMessage('Deposit successful! Your savings have been updated.');
       setDepositForm(prev => ({ ...prev, amount: '', description: 'Savings deposit' }));
-      setSuccessMessage(`Successfully deposited $${amount.toFixed(2)} to your savings account.`);
+      
+      // Add the new transaction to the list without refetching everything
+      if (response.data) {
+        const newTransaction = response.data;
+        setTransactions(prev => [newTransaction, ...prev]);
+        
+        // Update account balance
+        if (accountData) {
+          const newBalance = parseFloat(accountData.balance) + parseFloat(depositForm.amount);
+          setAccountData(prev => ({ ...prev, balance: newBalance }));
+        }
+      } else {
+        // If no transaction data returned, refresh all data
+        fetchAccountData();
+      }
       
     } catch (err) {
-      console.error('Error making deposit:', err);
-      setError('Failed to process deposit: ' + (err.response?.data?.error || err.message));
+      console.error('Error processing deposit:', err);
+      
+      if (err.response) {
+        // Handle specific HTTP error responses
+        switch (err.response.status) {
+          case 400:
+            setError(`Invalid deposit request: ${err.response.data?.error || 'Please check your input.'}`);
+            break;
+          case 401:
+          case 403:
+            setError('Authentication error. Please log in again.');
+            break;
+          case 404:
+            setError('Transaction service not found. Please contact support.');
+            break;
+          case 500:
+            setError('Server error processing your deposit. Please try again later.');
+            break;
+          default:
+            setError(`Failed to process deposit: ${err.response.data?.error || 'Unknown error'}`);
+        }
+      } else if (err.request) {
+        // Request was made but no response received
+        setError('No response from server. Please check your network connection.');
+      } else {
+        // Something else caused the error
+        setError('Failed to process deposit. Please try again later.');
+      }
     } finally {
       setIsLoading(false);
     }
