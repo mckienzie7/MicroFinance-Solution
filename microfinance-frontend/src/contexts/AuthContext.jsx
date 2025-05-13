@@ -175,11 +175,11 @@ export const AuthProvider = ({ children }) => {
   };
 
   // Register function
-  const register = async (userData) => {
+  const register = async (userData, isMultipart = false) => {
     try {
       setIsLoading(true);
       setAuthError(null);
-      const newUser = await authService.register(userData);
+      const newUser = await authService.register(userData, isMultipart);
       
       // Don't automatically log in the user after registration
       // Just return the user data without updating the auth state

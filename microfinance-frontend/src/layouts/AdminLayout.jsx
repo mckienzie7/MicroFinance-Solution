@@ -29,8 +29,8 @@ const AdminLayout = () => {
     { name: 'Dashboard', href: '/admin/dashboard', icon: HomeIcon },
     { name: 'User Management', href: '/admin/users', icon: UsersIcon },
     { name: 'Savings Control', href: '/admin/savings', icon: BanknotesIcon },
-    { name: 'Loan Applications', href: '/admin/loan-applications', icon: DocumentTextIcon },
-    { name: 'Approve Loans', href: '/admin/approve-loans', icon: CreditCardIcon },
+   
+    { name: 'Loan Applications', href: '/admin/approve-loans', icon: CreditCardIcon },
     { name: 'Company Balance', href: '/admin/company-balance', icon: ChartBarIcon },
     { name: 'Reports', href: '/admin/reports', icon: ChartBarIcon },
     { name: 'Settings', href: '/admin/settings', icon: CogIcon },
