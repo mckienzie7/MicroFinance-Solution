@@ -12,8 +12,6 @@ from sqlalchemy.orm import scoped_session, sessionmaker
 from BackEnd.models.base_model import BaseModel
 from BackEnd.models.user import User
 from BackEnd.models.Account import Account
-from BackEnd.models.Admin import Admin
-from BackEnd.models.Customer import Customer
 from BackEnd.models.Loan import Loan
 from BackEnd.models.Notification import Notification
 from BackEnd.models.otp import OTP
@@ -22,8 +20,7 @@ from BackEnd.models.Repayment import Repayment
 from BackEnd.models.Transaction import Transaction
 
 classes = {"BaseModel": BaseModel, "User": User,
-                                                "Account" : Account,  "Admin" : Admin,
-           "Customer" : Customer, "Loan" : Loan,
+                                                "Account" : Account, "Loan" : Loan,
                                                 "Repayment" : Repayment, "Transaction" : Transaction,
            "Notification" : Notification, "OTP" : OTP, "Telebirr" : Telebirr}
 

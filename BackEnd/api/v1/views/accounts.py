@@ -137,7 +137,7 @@ def withdraw(account_id):
     controller = AccountController()
     try:
         updated_account = controller.withdraw(account, amount)
-        return make_response(jsonify(updated_account.to_dict()), 200)
+        return make_response(jsonify(updated_account), 200)
     except ValueError as e:
         return make_response(jsonify({"error": str(e)}), 400)
 
