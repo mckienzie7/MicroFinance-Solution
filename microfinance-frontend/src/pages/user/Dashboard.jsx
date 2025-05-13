@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import api from '../../services/api';
 import { 
   CreditCardIcon, 
   UsersIcon,
@@ -8,7 +9,8 @@ import {
   CheckCircleIcon, 
   ExclamationCircleIcon,
   StarIcon,
-  ArrowPathIcon
+  ArrowPathIcon,
+  ExclamationTriangleIcon
 } from '@heroicons/react/24/outline';
 
 const Dashboard = () => {
@@ -33,48 +35,197 @@ const Dashboard = () => {
 
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchUserDashboardData = () => {
-      setIsLoading(true);
-      
-      setTimeout(() => {
-        setStats({
-          activeLoans: 1,
-          pendingApplications: 1,
-          totalRepaid: 2500,
-          nextPayment: {
-            amount: 500,
-            dueDate: '2025-05-15'
-          },
-          recentTransactions: [
-            { id: 1, type: 'Payment', amount: 500, status: 'Completed', date: '2025-04-15' },
-            { id: 2, type: 'Disbursement', amount: 5000, status: 'Completed', date: '2025-03-01' }
-          ],
-          loanHistory: [
-            { 
-              id: 1, 
-              amount: 5000, 
-              status: 'Active', 
-              startDate: '2025-03-01',
-              endDate: '2025-09-01',
-              progress: 30
-            },
-            { 
-              id: 2, 
-              amount: 2000, 
-              status: 'Pending', 
-              startDate: '2025-05-01',
-              endDate: null,
-              progress: 0
-            }
-          ]
-        });
-        setIsLoading(false);
-      }, 1000);
-    };
+  const [error, setError] = useState(null);
 
-    fetchUserDashboardData();
-  }, []);
+  // Verify API endpoints are available
+  const verifyApiEndpoints = async () => {
+    try {
+      await api.get('/api/v1');
+      return true;
+    } catch (err) {
+      console.error('API verification failed:', err);
+      setError('Failed fetching data');
+      return false;
+    }
+  };
+
+  // Fetch with retry for critical API calls
+  const fetchWithRetry = async (url, options = {}, retries = 2) => {
+    try {
+      return await api.get(url, options);
+    } catch (err) {
+      if (retries > 0) {
+        console.log(`Retrying ${url}, ${retries} attempts left`);
+        await new Promise(r => setTimeout(r, 1000));
+        return fetchWithRetry(url, options, retries - 1);
+      }
+      throw err;
+    }
+  };
+
+  // Fetch dashboard data from API
+  const fetchUserDashboardData = async () => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      // Verify API is available
+      const apiAvailable = await verifyApiEndpoints();
+      if (!apiAvailable) {
+        return;
+      }
+      
+      // Get customer ID
+      const customersResponse = await fetchWithRetry('/customers');
+      const customers = customersResponse.data;
+      const customer = customers.find(c => c.email === user.email);
+      
+      if (!customer) {
+        setError('Customer profile not found. Please update your profile first.');
+        return;
+      }
+      
+      // Get loans
+      const loansResponse = await api.get(`/customers/${customer.id}/loans`);
+      const loans = loansResponse.data || [];
+      
+      // Get accounts
+      const accountsResponse = await api.get(`/customers/${customer.id}/accounts`);
+      const accounts = accountsResponse.data || [];
+      
+      // Get transactions
+      let transactions = [];
+      if (accounts.length > 0) {
+        const accountIds = accounts.map(account => account.id);
+        const transactionPromises = accountIds.map(accountId => 
+          api.get(`/transactions/account/${accountId}`)
+            .then(res => res.data || [])
+            .catch(err => {
+              console.error(`Error fetching transactions for account ${accountId}:`, err);
+              return [];
+            })
+        );
+        
+        const transactionResults = await Promise.all(transactionPromises);
+        transactions = transactionResults.flat();
+      }
+      
+      // Calculate dashboard stats
+      const activeLoans = loans.filter(loan => loan.status === 'approved').length;
+      const pendingApplications = loans.filter(loan => loan.status === 'pending').length;
+      
+      // Calculate total repaid
+      const repaymentTransactions = transactions.filter(t => 
+        t.transaction_type === 'payment' || 
+        (t.description && t.description.toLowerCase().includes('repayment'))
+      );
+      const totalRepaid = repaymentTransactions.reduce((sum, t) => sum + parseFloat(t.amount), 0);
+      
+      // Find next payment due
+      let nextPayment = null;
+      const activeLoansList = loans.filter(loan => loan.status === 'approved');
+      if (activeLoansList.length > 0) {
+        // This is simplified - in a real app you'd fetch the actual repayment schedule
+        const nextDueDate = new Date();
+        nextDueDate.setDate(nextDueDate.getDate() + 15); // Assume payment due in 15 days
+        
+        nextPayment = {
+          amount: activeLoansList[0].monthly_payment || activeLoansList[0].amount / 6,
+          dueDate: nextDueDate.toISOString().split('T')[0]
+        };
+      }
+      
+      // Format transactions for display
+      const recentTransactions = transactions
+        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+        .slice(0, 5)
+        .map(t => ({
+          id: t.id,
+          type: t.transaction_type === 'deposit' ? 'Deposit' : 
+                t.transaction_type === 'payment' ? 'Payment' : 
+                t.transaction_type === 'withdrawal' ? 'Withdrawal' : 'Transaction',
+          amount: parseFloat(t.amount),
+          status: t.status || 'Completed',
+          date: t.created_at ? t.created_at.split('T')[0] : new Date().toISOString().split('T')[0]
+        }));
+      
+      // Format loans for display
+      const loanHistory = loans.map(loan => {
+        // Calculate progress for active loans
+        let progress = 0;
+        if (loan.status === 'approved' && loan.amount && loan.remaining_balance) {
+          progress = Math.round(((loan.amount - loan.remaining_balance) / loan.amount) * 100);
+        }
+        
+        return {
+          id: loan.id,
+          amount: parseFloat(loan.amount),
+          status: loan.status === 'approved' ? 'Active' : 
+                  loan.status === 'pending' ? 'Pending' : 
+                  loan.status === 'completed' ? 'Completed' : loan.status,
+          startDate: loan.created_at ? loan.created_at.split('T')[0] : '',
+          endDate: loan.end_date || null,
+          progress: progress
+        };
+      });
+      
+      // Update state with real data
+      setStats({
+        activeLoans,
+        pendingApplications,
+        totalRepaid,
+        nextPayment,
+        recentTransactions,
+        loanHistory,
+        creditScore: customer.credit_score || 75 // Default if not available
+      });
+      
+    } catch (err) {
+      console.error('Error fetching dashboard data:', err);
+      if (err.response) {
+        // Handle specific HTTP error responses
+        switch (err.response.status) {
+          case 404:
+            setError('API endpoint not found. Please ensure the backend server is properly configured.');
+            break;
+          case 401:
+          case 403:
+            setError('Authentication error. Please log in again.');
+            break;
+          case 500:
+            setError('Server error. Please try again later.');
+            break;
+          default:
+            setError(`Failed to load dashboard data: ${err.response.data?.error || 'Unknown error'}`);
+        }
+      } else if (err.request) {
+        // Request was made but no response received
+        setError('No response from server. Please check your network connection.');
+      } else {
+        // Something else caused the error
+        setError('Failed to load dashboard data. Please try again later.');
+      }
+      
+      // Set default stats in case of error
+      setStats({
+        activeLoans: 0,
+        pendingApplications: 0,
+        totalRepaid: 0,
+        nextPayment: null,
+        recentTransactions: [],
+        loanHistory: [],
+        creditScore: 75
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      fetchUserDashboardData();
+    }
+  }, [isAuthenticated, user]);
 
   const CreditScoreCard = () => (
     <div className="bg-gradient-to-r from-indigo-500 to-blue-600 rounded-2xl shadow-lg overflow-hidden">
@@ -212,44 +363,39 @@ const Dashboard = () => {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
+          <div className="flex items-center space-x-3 mb-2">
+            <div className="h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
+              <UsersIcon className="h-6 w-6 text-blue-600" />
+            </div>
+            <span className="text-lg font-medium text-gray-900">{user?.username}</span>
+          </div>
+          
           <h1 className="text-2xl font-bold text-gray-900">
-            Welcome 
-            
+            Welcome to your Dashboard
           </h1>
           
           <p className="mt-1 text-gray-500">
             Here's your financial overview
           </p>
-          <button 
-          className="flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-900"
-          onClick={() => window.location.reload()}
-        >
-          <ArrowPathIcon className="h-4 w-4" />
-          Refresh data
-        </button>
         </div>
 
-
-        <div className="flex items-center space-x-2 sm:space-x-4">
-            <div className="flex items-center space-x-1 sm:space-x-2">
-              <div className="h-8 w-8 sm:h-10 sm:w-10 bg-blue-100 rounded-full flex items-center justify-center">
-                <UsersIcon className="h-4 w-4 sm:h-6 sm:w-6 text-blue-600" />
-              </div>
-              <span className="text-sm sm:text-lg font-medium text-gray-900">{user?.username}</span>
-            </div>
-          </div>
-        
-       
-        {/* <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2">
-              <div className="h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
-                <UsersIcon className="h-6 w-6 text-blue-600" />
-              </div>
-              <span className="text-lg font-medium text-gray-900">{user?.username}</span>
-            </div>
-            
-          </div> */}
+        <button 
+          onClick={fetchUserDashboardData} 
+          disabled={isLoading}
+          className="flex items-center px-4 py-2 text-sm font-medium rounded-lg text-gray-700 hover:text-gray-900 hover:bg-gray-100 transition-colors"
+        >
+          <ArrowPathIcon className={`h-5 w-5 mr-2 ${isLoading ? 'animate-spin text-blue-500' : 'text-gray-500'}`} />
+          Refresh Data
+        </button>
       </div>
+      
+      {/* Error message */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start">
+          <ExclamationTriangleIcon className="h-5 w-5 text-red-500 mt-0.5 mr-3 flex-shrink-0" />
+          <p className="text-sm text-red-800">{error}</p>
+        </div>
+      )}
 
       {isLoading ? (
         <div className="flex justify-center items-center h-64">

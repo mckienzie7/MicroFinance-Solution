@@ -42,7 +42,7 @@ const SavingsAccount = () => {
       return true;
     } catch (err) {
       console.error('API verification failed:', err);
-      setError('Backend API is not available. Please ensure the server is running.');
+      setError('Failed fetching ');
       return false;
     }
   };
