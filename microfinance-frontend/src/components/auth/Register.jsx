@@ -4,11 +4,11 @@ import { useAuth } from '../../contexts/AuthContext';
 
 const Register = () => {
   const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
+    username: '',
     email: '',
     password: '',
     confirmPassword: '',
+    admin: false
   });
   const [formErrors, setFormErrors] = useState({});
   const [registrationSuccess, setRegistrationSuccess] = useState(false);
@@ -30,12 +30,8 @@ const Register = () => {
   const validateForm = () => {
     const errors = {};
     
-    if (!formData.firstName) {
-      errors.firstName = 'First name is required';
-    }
-    
-    if (!formData.lastName) {
-      errors.lastName = 'Last name is required';
+    if (!formData.username) {
+      errors.username = 'Username is required';
     }
     
     if (!formData.email) {
@@ -59,26 +55,31 @@ const Register = () => {
   };
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
+    const { name, value, type, checked } = e.target;
     setFormData({
       ...formData,
-      [name]: value,
+      [name]: type === 'checkbox' ? checked : value,
     });
   };
 
+  // State to track specific registration errors
+  const [registrationError, setRegistrationError] = useState('');
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Clear any previous errors
+    setRegistrationError('');
     
     if (validateForm()) {
       try {
         // Remove confirmPassword before sending to API
         const { confirmPassword, ...userData } = formData;
         
-        // Add default role if not specified
-        if (!userData.role) {
-          // Check if email contains 'admin' to assign admin role (temporary solution)
-          userData.admin = userData.email.includes('admin');
-        }
+        // Convert admin boolean to string for backend
+        userData.admin = userData.admin ? 'True' : 'False';
+        
+        console.log('Sending registration data:', userData);
         
         await register(userData);
         setRegistrationSuccess(true);
@@ -88,8 +89,16 @@ const Register = () => {
           navigate('/login', { state: { registered: true } });
         }, 2000);
       } catch (error) {
-        // Error is handled by the AuthContext
         console.error('Registration error:', error);
+        
+        // Check for specific error messages
+        if (error.message && error.message.includes('already registered')) {
+          setRegistrationError('This email is already registered. Please use a different email or try logging in.');
+        } else if (error.message) {
+          setRegistrationError(error.message);
+        } else {
+          setRegistrationError('Registration failed. Please try again.');
+        }
       }
     }
   };
@@ -111,52 +120,30 @@ const Register = () => {
               </div>
             )}
             
-            {authError && (
+            {(authError || registrationError) && (
               <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-                {authError}
+                {registrationError || authError}
               </div>
             )}
             
             <form className="space-y-6" onSubmit={handleSubmit}>
-              <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-2">
-                <div>
-                  <label htmlFor="firstName" className="block text-sm font-medium text-gray-700">
-                    First name
-                  </label>
-                  <div className="mt-1">
-                    <input
-                      id="firstName"
-                      name="firstName"
-                      type="text"
-                      autoComplete="given-name"
-                      value={formData.firstName}
-                      onChange={handleChange}
-                      className={`form-input ${formErrors.firstName ? 'border-red-500' : ''}`}
-                    />
-                    {formErrors.firstName && (
-                      <p className="mt-1 text-sm text-red-600">{formErrors.firstName}</p>
-                    )}
-                  </div>
-                </div>
-
-                <div>
-                  <label htmlFor="lastName" className="block text-sm font-medium text-gray-700">
-                    Last name
-                  </label>
-                  <div className="mt-1">
-                    <input
-                      id="lastName"
-                      name="lastName"
-                      type="text"
-                      autoComplete="family-name"
-                      value={formData.lastName}
-                      onChange={handleChange}
-                      className={`form-input ${formErrors.lastName ? 'border-red-500' : ''}`}
-                    />
-                    {formErrors.lastName && (
-                      <p className="mt-1 text-sm text-red-600">{formErrors.lastName}</p>
-                    )}
-                  </div>
+              <div>
+                <label htmlFor="username" className="block text-sm font-medium text-gray-700">
+                  full name
+                </label>
+                <div className="mt-1">
+                  <input
+                    id="username"
+                    name="username"
+                    type="text"
+                    autoComplete="username"
+                    value={formData.username}
+                    onChange={handleChange}
+                    className={`form-input w-full px-3 py-2 border border-gray-300 rounded ${formErrors.username ? 'border-red-500' : ''}`}
+                  />
+                  {formErrors.username && (
+                    <p className="mt-1 text-sm text-red-600">{formErrors.username}</p>
+                  )}
                 </div>
               </div>
 
@@ -172,7 +159,7 @@ const Register = () => {
                     autoComplete="email"
                     value={formData.email}
                     onChange={handleChange}
-                    className={`form-input ${formErrors.email ? 'border-red-500' : ''}`}
+                    className={`form-input w-full px-3 py-2 border border-gray-300 rounded ${formErrors.email ? 'border-red-500' : ''}`}
                   />
                   {formErrors.email && (
                     <p className="mt-1 text-sm text-red-600">{formErrors.email}</p>
@@ -192,7 +179,7 @@ const Register = () => {
                     autoComplete="new-password"
                     value={formData.password}
                     onChange={handleChange}
-                    className={`form-input ${formErrors.password ? 'border-red-500' : ''}`}
+                    className={`form-input w-full px-3 py-2 border border-gray-300 rounded ${formErrors.password ? 'border-red-500' : ''}`}
                   />
                   {formErrors.password && (
                     <p className="mt-1 text-sm text-red-600">{formErrors.password}</p>
@@ -212,7 +199,7 @@ const Register = () => {
                     autoComplete="new-password"
                     value={formData.confirmPassword}
                     onChange={handleChange}
-                    className={`form-input ${formErrors.confirmPassword ? 'border-red-500' : ''}`}
+                    className={`form-input w-full px-3 py-2 border border-gray-300 rounded ${formErrors.confirmPassword ? 'border-red-500' : ''}`}
                   />
                   {formErrors.confirmPassword && (
                     <p className="mt-1 text-sm text-red-600">{formErrors.confirmPassword}</p>
@@ -220,25 +207,38 @@ const Register = () => {
                 </div>
               </div>
 
+              <div className="flex items-center">
+                <input
+                  id="admin"
+                  name="admin"
+                  type="checkbox"
+                  checked={formData.admin}
+                  onChange={handleChange}
+                  className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                />
+                <label htmlFor="admin" className="ml-2 block text-sm text-gray-900">
+                  Register as Admin
+                </label>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div className="text-sm">
+                  <Link to="/login" className="font-medium text-indigo-600 hover:text-indigo-500">
+                    Already have an account?
+                  </Link>
+                </div>
+              </div>
+
               <div>
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="btn-primary w-full flex justify-center"
+                  className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
                 >
-                  {isLoading ? 'Creating account...' : 'Create account'}
+                  {isLoading ? 'Creating account...' : 'Sign up'}
                 </button>
               </div>
             </form>
-
-            <div className="mt-6">
-              <p className="text-center text-sm text-gray-600">
-                Already have an account?{' '}
-                <Link to="/login" className="font-medium text-blue-600 hover:text-blue-500">
-                  Sign in
-                </Link>
-              </p>
-            </div>
           </div>
         </div>
       </div>

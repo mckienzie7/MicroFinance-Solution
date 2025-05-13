@@ -13,6 +13,8 @@ class User(BaseModel, Base):
 
     __tablename__ = "users"  # Specify table name if needed
     # Attributes
+    full_name = Column(String(100), nullable=False)
+    phone_number = Column(String(15), unique=True, nullable=False)
     username = Column(String(80), unique=True, nullable=False)
     email = Column(String(120), unique=True, nullable=False)
     password = Column(String(128), nullable=False)
@@ -48,3 +50,13 @@ class User(BaseModel, Base):
     def check_password(self, password):
         """Verify the provided password"""
         return bcrypt.checkpw(password.encode(), self.password.encode())
+        
+    @classmethod
+    def get_user_by_email(cls, email):
+        """Retrieve a user by email"""
+        from BackEnd.models import storage
+        all_users = storage.all(cls)
+        for user in all_users.values():
+            if user.email == email:
+                return user
+        return None

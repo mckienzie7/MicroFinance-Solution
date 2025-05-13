@@ -12,83 +12,161 @@ export const AuthProvider = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [authError, setAuthError] = useState(null);
 
-  // Function to update user state
+  // Function to update user state - optimized to prevent redundant updates
   const updateUserState = (userData) => {
-    setUser(userData);
-    if (userData) {
-      setRole(userData.role);
-      setIsAdmin(userData.role === 'admin');
-      setIsAuthenticated(true);
-    } else {
-      setRole(null);
-      setIsAdmin(false);
-      setIsAuthenticated(false);
+    // Only update if the data actually changed
+    const currentUserEmail = user?.email;
+    const newUserEmail = userData?.email;
+    
+    if (currentUserEmail !== newUserEmail) {
+      console.log('User data changed, updating state');
+      setUser(userData);
+      
+      if (userData) {
+        // Get role from user data
+        const userRole = userData.role || 'user';
+        setRole(userRole);
+        setIsAdmin(userRole === 'admin');
+        setIsAuthenticated(true);
+      } else {
+        setRole(null);
+        setIsAdmin(false);
+        setIsAuthenticated(false);
+      }
     }
   };
 
-  // Verify session on mount and periodically
+  // Verify session on mount - optimized to reduce UI flickering
   const verifySession = async () => {
+    // If we're already authenticated with a user and role, skip verification
+    if (isAuthenticated && user && role) {
+      return;
+    }
+    
     try {
+      // Only set loading if we're actually going to verify
       setIsLoading(true);
       
-      // First check if we have a user in storage
+      // Check if we have a user in storage
       const storedUser = authService.getCurrentUser();
-      updateUserState(storedUser);
+      const sessionId = authService.getSessionId(); // Use the centralized function
       
-      if (storedUser) {
-        try {
-          // If we have a stored user, try to fetch fresh data from the server
-          const freshUser = await authService.fetchCurrentUser();
-          updateUserState(freshUser);
-        } catch (error) {
-          // If fetching fresh data fails due to authentication issues
-          if (error.response?.status === 401) {
-            updateUserState(null);
-            setAuthError('Your session has expired. Please log in again.');
-          }
-        }
+      // If we have both a stored user and session ID, we can consider the user authenticated
+      if (storedUser && sessionId) {
+        updateUserState(storedUser);
+        return; // Exit early - no need for API call
+      }
+      
+      console.log('Verifying session with:', { 
+        storedUser, 
+        sessionId, 
+        isAuthenticated: !!storedUser && !!sessionId,
+        currentAuthState: isAuthenticated
+      });
+      
+      // Check for both user data and session ID
+      if (storedUser && sessionId) {
+        // We have both user data and a session ID, consider the session valid
+        console.log('Session is valid, updating user state with:', storedUser);
+        
+        // Force authentication state update
+        setUser(storedUser);
+        setRole(storedUser.role || (storedUser.admin ? 'admin' : 'user'));
+        setIsAdmin(!!storedUser.admin);
+        setIsAuthenticated(true);
+        
+        // Ensure the cookie is set for future requests
+        document.cookie = `session_id=${sessionId}; path=/; samesite=lax; max-age=86400`;
       } else {
-        // If no stored user, just verify the session
-        const isValid = await authService.verifySession();
-        if (!isValid) {
-          updateUserState(null);
-        }
+        // If we don't have both user data and session ID, we're not authenticated
+        console.log('Session is invalid, clearing user state');
+        setUser(null);
+        setRole(null);
+        setIsAdmin(false);
+        setIsAuthenticated(false);
+        
+        // Clear any existing cookies
+        document.cookie = 'session_id=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
       }
     } catch (error) {
       console.error('Session verification error:', error);
       setAuthError('There was a problem verifying your session.');
+      // On error, keep the current authentication state
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Initial session verification
+  // Initialize auth state from storage on mount - only once
   useEffect(() => {
-    verifySession();
-    
-    // Set up periodic session verification (every 5 minutes)
-    const intervalId = setInterval(() => {
-      if (isAuthenticated) {
-        authService.verifySession().catch(() => {
-          // If verification fails, update state
-          updateUserState(null);
-          setAuthError('Your session has expired. Please log in again.');
-        });
+    const initializeAuth = async () => {
+      // Start with loading state
+      setIsLoading(true);
+      
+      try {
+        // Use the centralized function to get session ID
+        const sessionId = authService.getSessionId();
+        const storedUser = authService.getCurrentUser();
+        
+        // Only log in development mode and only if there's something to report
+        if (process.env.NODE_ENV === 'development' && (storedUser || sessionId)) {
+          console.debug('Auth initialization:', { 
+            hasUser: !!storedUser, 
+            hasSessionId: !!sessionId
+          });
+        }
+        
+        // If we have both user data and session ID, use them
+        if (storedUser && sessionId) {
+          // Use updateUserState to prevent redundant updates
+          updateUserState(storedUser);
+        } else {
+          // Clear auth state if missing user or session
+          if (isAuthenticated) {
+            console.log('Missing user or session, clearing auth state');
+            updateUserState(null);
+          }
+        }
+      } catch (error) {
+        console.error('Error initializing auth:', error);
+        setAuthError('Error initializing authentication');
+      } finally {
+        setIsLoading(false);
       }
-    }, 5 * 60 * 1000);
+    };
     
-    return () => clearInterval(intervalId);
-  }, [isAuthenticated]);
+    initializeAuth();
+    
+    // No periodic checks to avoid vibration/loops
+    // We'll only verify on important actions like navigation
+    
+    return () => {}; // No cleanup needed
+  }, []);
 
   // Login function
   const login = async (credentials) => {
     try {
       setIsLoading(true);
       setAuthError(null);
+      
+      // Call the login service
       const userData = await authService.login(credentials);
+      
+      // Log the authentication process
+      console.log('Login successful, updating user state with:', userData);
+      
+      // Update the authentication state
       updateUserState(userData);
+      
+      // Force a session verification after login
+      setTimeout(() => {
+        console.log('Verifying session after login...');
+        verifySession();
+      }, 500);
+      
       return userData;
     } catch (error) {
+      console.error('Login error in AuthContext:', error);
       setAuthError(error.message || 'Login failed');
       throw error;
     } finally {
@@ -102,7 +180,11 @@ export const AuthProvider = ({ children }) => {
       setIsLoading(true);
       setAuthError(null);
       const newUser = await authService.register(userData);
-      updateUserState(newUser);
+      
+      // Don't automatically log in the user after registration
+      // Just return the user data without updating the auth state
+      console.log('Registration successful, but not automatically logging in');
+      
       return newUser;
     } catch (error) {
       setAuthError(error.message || 'Registration failed');
@@ -128,6 +210,36 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Request password reset
+  const requestPasswordReset = async (email) => {
+    try {
+      setIsLoading(true);
+      setAuthError(null);
+      const result = await authService.requestPasswordReset(email);
+      return result;
+    } catch (error) {
+      setAuthError(error.message || 'Password reset request failed');
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Reset password with token
+  const resetPassword = async (token, newPassword) => {
+    try {
+      setIsLoading(true);
+      setAuthError(null);
+      const result = await authService.resetPassword(token, newPassword);
+      return result;
+    } catch (error) {
+      setAuthError(error.message || 'Password reset failed');
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Clear any auth errors
   const clearAuthError = () => setAuthError(null);
 
@@ -142,6 +254,8 @@ export const AuthProvider = ({ children }) => {
     register,
     logout,
     verifySession,
+    requestPasswordReset,
+    resetPassword,
     clearAuthError
   };
 

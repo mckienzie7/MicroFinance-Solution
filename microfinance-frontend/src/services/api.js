@@ -2,11 +2,12 @@ import axios from 'axios';
 
 // Create an axios instance with default config
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
+  // Use the Vite proxy which will handle CORS issues
+  baseURL: '/api/v1',
   headers: {
-    'Content-Type': 'application/json',
+    'Content-Type': 'application/json'
   },
-  withCredentials: true, // Enable sending cookies for cross-domain requests
+  withCredentials: true // Enable sending cookies for cross-domain requests
 });
 
 // Add a request interceptor to handle authentication
@@ -42,8 +43,9 @@ api.interceptors.response.use(
     
     // Handle authentication errors
     if (response && response.status === 401) {
-      // Clear user from sessionStorage
+      // Clear user and session from sessionStorage
       sessionStorage.removeItem('user');
+      sessionStorage.removeItem('session_id');
       
       // Only redirect if we're not already on the login page
       if (!window.location.pathname.includes('/login')) {

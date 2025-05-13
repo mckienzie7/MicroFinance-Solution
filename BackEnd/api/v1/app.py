@@ -12,7 +12,10 @@ from flasgger import Swagger
 app = Flask(__name__)
 app.config['JSONIFY_PRETTYPRINT_REGULAR'] = True
 app.register_blueprint(app_views)
-cors = CORS(app, resources={r"/api/v1/*": {"origins": "*"}})
+
+# Configure CORS to allow requests from any origin
+# This is safe because we're using a proxy in the frontend
+CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
 
 
 @app.teardown_appcontext
