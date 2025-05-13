@@ -29,7 +29,7 @@ const UserLayout = () => {
   const navigation = [
     { name: 'Dashboard', href: '/user/dashboard', icon: HomeIcon },
     { name: 'Savings Account', href: '/user/savings', icon: BanknotesIcon },
-    { name: 'Apply for Loan', href: '/user/apply-loan', icon: BanknotesIcon },
+
     { name: 'My Loans', href: '/user/loans', icon: CreditCardIcon },
     { name: 'Loan Repayment', href: '/user/pay-loan', icon: CreditCardIcon },
     { name: 'AI Credit Score', href: '/user/credit-score', icon: DocumentTextIcon },
