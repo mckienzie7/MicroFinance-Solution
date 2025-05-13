@@ -24,7 +24,7 @@ import Register from './components/auth/Register';
 // User Pages
 import UserDashboard from './pages/user/Dashboard';
 import SavingsAccount from './pages/user/SavingsAccount';
-import ApplyLoan from './pages/user/ApplyLoan';
+// ApplyLoan component removed
 import MyLoans from './pages/user/MyLoans';
 import LoanRepayment from './pages/user/LoanRepayment';
 import CreditScore from './pages/user/CreditScore';
@@ -70,7 +70,7 @@ function App() {
               <Route element={<UserLayout />}>
                 <Route path="dashboard" element={<UserDashboard />} />
                 <Route path="savings" element={<SavingsAccount />} />
-                <Route path="apply-loan" element={<ApplyLoan />} />
+                {/* ApplyLoan route removed */}
                 <Route path="loans" element={<MyLoans />} />
                 <Route path="pay-loan" element={<LoanRepayment />} />
                 <Route path="credit-score" element={<CreditScore />} />
