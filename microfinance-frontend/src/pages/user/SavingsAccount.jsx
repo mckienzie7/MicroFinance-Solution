@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import api from '../../services/api';
@@ -431,16 +430,6 @@ const SavingsAccount = () => {
             </div>
           )}
         </div>
-=======
-import React from 'react';
-
-const SavingsAccount = () => {
-  return (
-    <div className="p-4">
-      <h2 className="text-2xl font-bold mb-4">Savings Account</h2>
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <p className="text-gray-600">View and manage your savings account details here.</p>
->>>>>>> fe9065b2613f79ba306bfc2c56c524e65b6e6fd0
       </div>
     </div>
   );
