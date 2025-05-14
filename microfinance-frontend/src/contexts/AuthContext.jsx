@@ -52,42 +52,22 @@ export const AuthProvider = ({ children }) => {
       const sessionId = authService.getSessionId(); // Use the centralized function
       
       // If we have both a stored user and session ID, we can consider the user authenticated
+      // This is the optimized path to prevent UI flickering
       if (storedUser && sessionId) {
+        console.log('Session is valid, updating user state with:', storedUser);
         updateUserState(storedUser);
         return; // Exit early - no need for API call
       }
       
-      console.log('Verifying session with:', { 
-        storedUser, 
-        sessionId, 
-        isAuthenticated: !!storedUser && !!sessionId,
-        currentAuthState: isAuthenticated
-      });
+      // If we get here, we don't have valid authentication data
+      console.log('Session is invalid, clearing user state');
+      setUser(null);
+      setRole(null);
+      setIsAdmin(false);
+      setIsAuthenticated(false);
       
-      // Check for both user data and session ID
-      if (storedUser && sessionId) {
-        // We have both user data and a session ID, consider the session valid
-        console.log('Session is valid, updating user state with:', storedUser);
-        
-        // Force authentication state update
-        setUser(storedUser);
-        setRole(storedUser.role || (storedUser.admin ? 'admin' : 'user'));
-        setIsAdmin(!!storedUser.admin);
-        setIsAuthenticated(true);
-        
-        // Ensure the cookie is set for future requests
-        document.cookie = `session_id=${sessionId}; path=/; samesite=lax; max-age=86400`;
-      } else {
-        // If we don't have both user data and session ID, we're not authenticated
-        console.log('Session is invalid, clearing user state');
-        setUser(null);
-        setRole(null);
-        setIsAdmin(false);
-        setIsAuthenticated(false);
-        
-        // Clear any existing cookies
-        document.cookie = 'session_id=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
-      }
+      // Clear any existing cookies
+      document.cookie = 'session_id=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
     } catch (error) {
       console.error('Session verification error:', error);
       setAuthError('There was a problem verifying your session.');
@@ -150,6 +130,8 @@ export const AuthProvider = ({ children }) => {
       setAuthError(null);
       
       // Call the login service
+      
+      // Call the login service
       const userData = await authService.login(credentials);
       
       // Log the authentication process
@@ -175,11 +157,11 @@ export const AuthProvider = ({ children }) => {
   };
 
   // Register function
-  const register = async (userData) => {
+  const register = async (userData, isMultipart = false) => {
     try {
       setIsLoading(true);
       setAuthError(null);
-      const newUser = await authService.register(userData);
+      const newUser = await authService.register(userData, isMultipart);
       
       // Don't automatically log in the user after registration
       // Just return the user data without updating the auth state

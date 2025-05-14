@@ -3,7 +3,7 @@ import axios from 'axios';
 // Create an axios instance with default config
 const api = axios.create({
   // Use the Vite proxy which will handle CORS issues
-  baseURL: '/api/v1',
+  baseURL: 'http://localhost:5000/api/v1', // Direct connection to backend
   headers: {
     'Content-Type': 'application/json'
   },
@@ -44,7 +44,9 @@ api.interceptors.response.use(
     // Handle authentication errors
     if (response && response.status === 401) {
       // Clear user and session from sessionStorage
+      // Clear user and session from sessionStorage
       sessionStorage.removeItem('user');
+      sessionStorage.removeItem('session_id');
       sessionStorage.removeItem('session_id');
       
       // Only redirect if we're not already on the login page

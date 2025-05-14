@@ -38,11 +38,11 @@ const SavingsAccount = () => {
   // Verify API endpoints are available
   const verifyApiEndpoints = async () => {
     try {
-      await api.get('/api/v1');
+      await api.get('/accounts');
       return true;
     } catch (err) {
       console.error('API verification failed:', err);
-      setError('Failed fetching ');
+      setError('Failed fetching accounts endpoint.');
       return false;
     }
   };
@@ -205,47 +205,17 @@ const SavingsAccount = () => {
     setFormErrors({});
     
     try {
-      // Verify API is available
-      const apiAvailable = await verifyApiEndpoints();
-      if (!apiAvailable) {
-        setError('Backend API is not available. Please try again later.');
-        return;
-      }
-      
-      // Prepare deposit data
-      const depositData = {
-        ...depositForm,
-        amount: parseFloat(depositForm.amount),
-        transaction_type: 'deposit'
-      };
-      
-      // Submit deposit to API
-      const response = await api.post('/transactions', depositData);
-      
-      // Handle successful response
+      // Make deposit to backend
+      await api.post(`/accounts/${depositForm.account_id}/deposit`, {
+        amount: parseFloat(depositForm.amount)
+      });
       setSuccessMessage('Deposit successful! Your savings have been updated.');
       setDepositForm(prev => ({ ...prev, amount: '', description: 'Savings deposit' }));
-      
-      // Add the new transaction to the list without refetching everything
-      if (response.data) {
-        const newTransaction = response.data;
-        setTransactions(prev => [newTransaction, ...prev]);
-        
-        // Update account balance
-        if (accountData) {
-          const newBalance = parseFloat(accountData.balance) + parseFloat(depositForm.amount);
-          setAccountData(prev => ({ ...prev, balance: newBalance }));
-        }
-      } else {
-        // If no transaction data returned, refresh all data
-        fetchAccountData();
-      }
-      
+      // Refresh account data to get new balance
+      fetchAccountData();
     } catch (err) {
       console.error('Error processing deposit:', err);
-      
       if (err.response) {
-        // Handle specific HTTP error responses
         switch (err.response.status) {
           case 400:
             setError(`Invalid deposit request: ${err.response.data?.error || 'Please check your input.'}`);
@@ -255,7 +225,7 @@ const SavingsAccount = () => {
             setError('Authentication error. Please log in again.');
             break;
           case 404:
-            setError('Transaction service not found. Please contact support.');
+            setError('Account not found. Please contact support.');
             break;
           case 500:
             setError('Server error processing your deposit. Please try again later.');
@@ -264,10 +234,8 @@ const SavingsAccount = () => {
             setError(`Failed to process deposit: ${err.response.data?.error || 'Unknown error'}`);
         }
       } else if (err.request) {
-        // Request was made but no response received
         setError('No response from server. Please check your network connection.');
       } else {
-        // Something else caused the error
         setError('Failed to process deposit. Please try again later.');
       }
     } finally {
@@ -356,15 +324,20 @@ const SavingsAccount = () => {
           <div className="p-6 border-b border-gray-200">
             <h2 className="text-lg font-medium text-gray-900">Make a Deposit</h2>
           </div>
-          <form onSubmit={handleSubmitDeposit} className="p-6 space-y-4">
-            <div>
-              <label htmlFor="amount" className="block text-sm font-medium text-gray-700 mb-1">
-                Deposit Amount ($)
+          {!depositForm.account_id && (
+            <div className="mb-4 text-yellow-600 font-semibold">
+              Loading your savings account...
+            </div>
+          )}
+          <form onSubmit={handleSubmitDeposit} className="space-y-4">
+            <div className="mb-4">
+              <label htmlFor="amount" className="block text-sm font-medium text-gray-700">
+                Deposit Amount
               </label>
               <input
                 type="number"
-                id="amount"
                 name="amount"
+                id="amount"
                 value={depositForm.amount}
                 onChange={handleInputChange}
                 className={`w-full px-3 py-2 border ${formErrors.amount ? 'border-red-300' : 'border-gray-300'} rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
@@ -376,15 +349,14 @@ const SavingsAccount = () => {
                 <p className="mt-1 text-sm text-red-600">{formErrors.amount}</p>
               )}
             </div>
-            
-            <div>
-              <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
-                Description (Optional)
+            <div className="mb-4">
+              <label htmlFor="description" className="block text-sm font-medium text-gray-700">
+                Description
               </label>
               <input
                 type="text"
-                id="description"
                 name="description"
+                id="description"
                 value={depositForm.description}
                 onChange={handleInputChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
@@ -395,7 +367,7 @@ const SavingsAccount = () => {
             <div className="pt-4">
               <button
                 type="submit"
-                disabled={isLoading}
+                disabled={isLoading || !depositForm.account_id}
                 className="w-full px-4 py-3 text-center font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:bg-blue-300"
               >
                 {isLoading ? 'Processing...' : 'Make Deposit'}
@@ -404,7 +376,16 @@ const SavingsAccount = () => {
           </form>
         </div>
         
-        {/* Transaction History */}
+        {/* Current Balance */}
+{accountData && (
+  <div className="mb-4">
+    <h2 className="text-2xl font-bold">
+      Current Balance: ${parseFloat(accountData.balance).toFixed(2)}
+    </h2>
+  </div>
+)}
+
+{/* Transaction History */}
         <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
           <div className="p-6 border-b border-gray-200">
             <h2 className="text-lg font-medium text-gray-900">Recent Savings Transactions</h2>

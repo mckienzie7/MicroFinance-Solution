@@ -5,7 +5,7 @@ import React, { useEffect, useState } from 'react';
 import AdminDashboard from './pages/admin/Dashboard';
 import UserManagement from './pages/admin/UserManagement';
 import SavingsControl from './pages/admin/SavingsControl';
-import LoanApplications from './pages/admin/LoanApplications';
+
 import ApproveLoans from './pages/admin/ApproveLoans';
 import CompanyBalance from './pages/admin/CompanyBalance';
 import Reports from './pages/admin/Reports';
@@ -56,7 +56,7 @@ function App() {
                 <Route path="dashboard" element={<AdminDashboard />} />
                 <Route path="users" element={<UserManagement />} />
                 <Route path="savings" element={<SavingsControl />} />
-                <Route path="loan-applications" element={<LoanApplications />} />
+            
                 <Route path="approve-loans" element={<ApproveLoans />} />
                 <Route path="company-balance" element={<CompanyBalance />} />
                 <Route path="reports" element={<Reports />} />

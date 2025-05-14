@@ -9,6 +9,7 @@ from sqlalchemy.orm.exc import NoResultFound
 from BackEnd.models import storage
 from BackEnd.models.user import User
 from BackEnd.Controllers.UserControllers import UserController
+from datetime import datetime, timedelta
 
 
 def _hash_password(password) -> bytes:
@@ -28,13 +29,29 @@ class AuthController:
         self._db = storage
         self._userC = UserController()
 
-    def register_user(self, username: str, email: str, password: str, admin: bool) -> User:
+    def register_user(self, username: str, email: str, password: str, admin: bool = False, 
+                     fullname: str = None, phone_number: str = None, fayda_document = None) -> User:
         """Register a new user in the database."""
         new_user = None
         try:
             new_user = self._userC.find_user_by(email=email)
         except NoResultFound:
-            return self._userC.add_user(username, email, password, admin)
+            # Create new user with all fields
+            new_user = self._userC.add_user(
+                username=username,
+                email=email,
+                password=password,
+                admin=admin,
+                fullname=fullname or username,
+                phone_number=phone_number
+            )
+            
+            # Handle Fayda document upload if present
+            if fayda_document:
+                new_user.update_fayda_document(fayda_document)
+                self._db.save()
+            
+            return new_user
         raise ValueError(f"User {email} already exists")
 
     def valid_login(self, email: str, password: str) -> bool:
@@ -62,7 +79,9 @@ class AuthController:
             return None
 
         session_id = _generate_uuid()
-        self._userC.update_user(user.id, session_id=session_id)
+        # Set session expiration to 24 hours from now
+        session_expiration = datetime.utcnow() + timedelta(hours=24)
+        self._userC.update_user(user.id, session_id=session_id, session_expiration=session_expiration)
         return session_id
 
     def get_user_from_session_id(self, session_id: str) -> Union[User, None]:
@@ -73,6 +92,10 @@ class AuthController:
         self._db.cleanup_expired_sessions()
         try:
             user = self._userC.find_user_by(session_id=session_id)
+            # Check if session has expired
+            if user and user.session_expiration and user.session_expiration < datetime.utcnow():
+                self.destroy_session(user.id)
+                return None
         except NoResultFound:
             return None
         return user
@@ -81,7 +104,7 @@ class AuthController:
         """Destroys a session associated with a given user."""
         if user_id is None:
             return None
-        self._userC.update_user(user_id, session_id=None)
+        self._userC.update_user(user_id, session_id=None, session_expiration=None)
 
     def get_reset_password_token(self, email: str) -> str:
         """Generates a password reset token for a user."""

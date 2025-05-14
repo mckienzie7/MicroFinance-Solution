@@ -1,15 +1,20 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 
 const Register = () => {
   const [formData, setFormData] = useState({
+    fullName: '',
     username: '',
     email: '',
+    phoneNumber: '+251',
     password: '',
     confirmPassword: '',
-    admin: false
+    idPicture: null
+    // Removed admin field as registration is only for regular users
   });
+  const [idPreview, setIdPreview] = useState(null);
+  const fileInputRef = useRef(null);
   const [formErrors, setFormErrors] = useState({});
   const [registrationSuccess, setRegistrationSuccess] = useState(false);
   
@@ -30,6 +35,10 @@ const Register = () => {
   const validateForm = () => {
     const errors = {};
     
+    if (!formData.fullName) {
+      errors.fullName = 'Full name is required';
+    }
+    
     if (!formData.username) {
       errors.username = 'Username is required';
     }
@@ -38,6 +47,12 @@ const Register = () => {
       errors.email = 'Email is required';
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
       errors.email = 'Email is invalid';
+    }
+    
+    if (!formData.phoneNumber) {
+      errors.phoneNumber = 'Phone number is required';
+    } else if (!/^\+251\d{9}$/.test(formData.phoneNumber.replace(/[\s-]/g, ''))) {
+      errors.phoneNumber = 'Phone number must start with +251 followed by 9 digits';
     }
     
     if (!formData.password) {
@@ -50,16 +65,42 @@ const Register = () => {
       errors.confirmPassword = 'Passwords do not match';
     }
     
+    if (!formData.idPicture) {
+      errors.idPicture = 'ID picture is required';
+    }
+    
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
   const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setFormData({
-      ...formData,
-      [name]: type === 'checkbox' ? checked : value,
-    });
+    const { name, value, type, files } = e.target;
+    
+    if (type === 'file') {
+      if (files && files[0]) {
+        const file = files[0];
+        setFormData({
+          ...formData,
+          [name]: file
+        });
+        
+        // Create preview for ID picture
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setIdPreview(reader.result);
+        };
+        reader.readAsDataURL(file);
+      }
+    } else {
+      setFormData({
+        ...formData,
+        [name]: value,
+      });
+    }
+  };
+  
+  const handleFileButtonClick = () => {
+    fileInputRef.current.click();
   };
 
   // State to track specific registration errors
@@ -67,182 +108,254 @@ const Register = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    // Clear any previous errors
-    setRegistrationError('');
-    
-    if (validateForm()) {
-      try {
-        // Remove confirmPassword before sending to API
-        const { confirmPassword, ...userData } = formData;
-        
-        // Convert admin boolean to string for backend
-        userData.admin = userData.admin ? 'True' : 'False';
-        
-        console.log('Sending registration data:', userData);
-        
-        await register(userData);
-        setRegistrationSuccess(true);
-        
-        // Redirect to login after successful registration
-        setTimeout(() => {
-          navigate('/login', { state: { registered: true } });
-        }, 2000);
-      } catch (error) {
-        console.error('Registration error:', error);
-        
-        // Check for specific error messages
-        if (error.message && error.message.includes('already registered')) {
-          setRegistrationError('This email is already registered. Please use a different email or try logging in.');
-        } else if (error.message) {
-          setRegistrationError(error.message);
-        } else {
-          setRegistrationError('Registration failed. Please try again.');
-        }
+    if (!validateForm()) return;
+
+    try {
+      const formDataToSend = new FormData();
+      formDataToSend.append('username', formData.username);
+      formDataToSend.append('email', formData.email);
+      formDataToSend.append('password', formData.password);
+      formDataToSend.append('fullName', formData.fullName);
+      formDataToSend.append('phoneNumber', formData.phoneNumber);
+      formDataToSend.append('admin', 'False');
+      
+      // Add the ID picture to the form data with the correct key
+      if (formData.idPicture) {
+        formDataToSend.append('idPicture', formData.idPicture);
       }
+
+      const user = await register(formDataToSend, true);
+      setRegistrationSuccess(true);
+      setTimeout(() => {
+        navigate('/login', { state: { registered: true } });
+      }, 2000);
+    } catch (error) {
+      console.error('Registration error:', error);
+      setRegistrationError(error.message || 'Registration failed. Please try again.');
     }
   };
 
+
   return (
-    <div className="flex min-h-screen bg-gray-50">
-      <div className="flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 w-full max-w-md mx-auto">
-        <div className="sm:mx-auto sm:w-full sm:max-w-md">
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
+    <div className="min-h-screen bg-gray-100 py-12">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="text-center mb-10">
+          <h1 className="text-4xl font-extrabold text-gray-900 tracking-tight">
             Create your account
-          </h2>
+          </h1>
+          <p className="mt-3 text-lg text-gray-600">
+            Join our microfinance platform to access financial services
+          </p>
         </div>
 
-        <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-          <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+        <div className="bg-white rounded-xl shadow-xl overflow-hidden">
+          <div className="p-8">
             {registrationSuccess && (
-              <div className="mb-4 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded">
+              <div className="mb-6 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded">
                 Registration successful! Redirecting to login page...
               </div>
             )}
             
             {(authError || registrationError) && (
-              <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-                {registrationError || authError}
+              <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+                {authError || registrationError}
               </div>
             )}
             
-            <form className="space-y-6" onSubmit={handleSubmit}>
-              <div>
-                <label htmlFor="username" className="block text-sm font-medium text-gray-700">
-                  full name
+            <form onSubmit={handleSubmit}>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Full Name */}
+                <div>
+                  <label htmlFor="fullName" className="block text-sm font-medium text-gray-700">
+                    Full Name
+                  </label>
+                  <div className="mt-1">
+                    <input
+                      id="fullName"
+                      name="fullName"
+                      type="text"
+                      autoComplete="name"
+                      value={formData.fullName}
+                      onChange={handleChange}
+                      className={`form-input w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 ${formErrors.fullName ? 'border-red-500' : ''}`}
+                    />
+                    {formErrors.fullName && (
+                      <p className="mt-1 text-sm text-red-600">{formErrors.fullName}</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Username */}
+                <div>
+                  <label htmlFor="username" className="block text-sm font-medium text-gray-700">
+                    Username
+                  </label>
+                  <div className="mt-1">
+                    <input
+                      id="username"
+                      name="username"
+                      type="text"
+                      autoComplete="username"
+                      value={formData.username}
+                      onChange={handleChange}
+                      className={`form-input w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 ${formErrors.username ? 'border-red-500' : ''}`}
+                    />
+                    {formErrors.username && (
+                      <p className="mt-1 text-sm text-red-600">{formErrors.username}</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Email */}
+                <div>
+                  <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                    Email address
+                  </label>
+                  <div className="mt-1">
+                    <input
+                      id="email"
+                      name="email"
+                      type="email"
+                      autoComplete="email"
+                      value={formData.email}
+                      onChange={handleChange}
+                      className={`form-input w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 ${formErrors.email ? 'border-red-500' : ''}`}
+                    />
+                    {formErrors.email && (
+                      <p className="mt-1 text-sm text-red-600">{formErrors.email}</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Phone Number */}
+                <div>
+                  <label htmlFor="phoneNumber" className="block text-sm font-medium text-gray-700">
+                    Phone Number
+                  </label>
+                  <div className="mt-1">
+                    <input
+                      id="phoneNumber"
+                      name="phoneNumber"
+                      type="tel"
+                      autoComplete="tel"
+                      value={formData.phoneNumber}
+                      onChange={handleChange}
+                      placeholder="e.g., +251912345678"
+                      className={`form-input w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 ${formErrors.phoneNumber ? 'border-red-500' : ''}`}
+                    />
+                    {formErrors.phoneNumber && (
+                      <p className="mt-1 text-sm text-red-600">{formErrors.phoneNumber}</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Password */}
+                <div>
+                  <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                    Password
+                  </label>
+                  <div className="mt-1">
+                    <input
+                      id="password"
+                      name="password"
+                      type="password"
+                      autoComplete="new-password"
+                      value={formData.password}
+                      onChange={handleChange}
+                      className={`form-input w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 ${formErrors.password ? 'border-red-500' : ''}`}
+                    />
+                    {formErrors.password && (
+                      <p className="mt-1 text-sm text-red-600">{formErrors.password}</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Confirm Password */}
+                <div>
+                  <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
+                    Confirm password
+                  </label>
+                  <div className="mt-1">
+                    <input
+                      id="confirmPassword"
+                      name="confirmPassword"
+                      type="password"
+                      autoComplete="new-password"
+                      value={formData.confirmPassword}
+                      onChange={handleChange}
+                      className={`form-input w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 ${formErrors.confirmPassword ? 'border-red-500' : ''}`}
+                    />
+                    {formErrors.confirmPassword && (
+                      <p className="mt-1 text-sm text-red-600">{formErrors.confirmPassword}</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* ID Picture Upload - Full width */}
+              <div className="mt-6">
+                <label htmlFor="idPicture" className="block text-sm font-medium text-gray-700">
+                  Upload your National ID (Fayda)
                 </label>
                 <div className="mt-1">
                   <input
-                    id="username"
-                    name="username"
-                    type="text"
-                    autoComplete="username"
-                    value={formData.username}
+                    id="idPicture"
+                    name="idPicture"
+                    type="file"
+                    accept="image/*"
+                    ref={fileInputRef}
                     onChange={handleChange}
-                    className={`form-input w-full px-3 py-2 border border-gray-300 rounded ${formErrors.username ? 'border-red-500' : ''}`}
+                    className="hidden"
                   />
-                  {formErrors.username && (
-                    <p className="mt-1 text-sm text-red-600">{formErrors.username}</p>
+                  <div className="flex items-center">
+                    <button
+                      type="button"
+                      onClick={handleFileButtonClick}
+                      className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                    >
+                      Choose File
+                    </button>
+                    <span className="ml-3 text-sm text-gray-500">
+                      {formData.idPicture ? formData.idPicture.name : 'No file chosen'}
+                    </span>
+                  </div>
+                  {idPreview && (
+                    <div className="mt-2">
+                      <img src={idPreview} alt="ID Preview" className="h-32 w-auto object-contain border rounded" />
+                    </div>
+                  )}
+                  {formErrors.idPicture && (
+                    <p className="mt-1 text-sm text-red-600">{formErrors.idPicture}</p>
                   )}
                 </div>
               </div>
 
-              <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                  Email address
-                </label>
-                <div className="mt-1">
-                  <input
-                    id="email"
-                    name="email"
-                    type="email"
-                    autoComplete="email"
-                    value={formData.email}
-                    onChange={handleChange}
-                    className={`form-input w-full px-3 py-2 border border-gray-300 rounded ${formErrors.email ? 'border-red-500' : ''}`}
-                  />
-                  {formErrors.email && (
-                    <p className="mt-1 text-sm text-red-600">{formErrors.email}</p>
-                  )}
-                </div>
-              </div>
-
-              <div>
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                  Password
-                </label>
-                <div className="mt-1">
-                  <input
-                    id="password"
-                    name="password"
-                    type="password"
-                    autoComplete="new-password"
-                    value={formData.password}
-                    onChange={handleChange}
-                    className={`form-input w-full px-3 py-2 border border-gray-300 rounded ${formErrors.password ? 'border-red-500' : ''}`}
-                  />
-                  {formErrors.password && (
-                    <p className="mt-1 text-sm text-red-600">{formErrors.password}</p>
-                  )}
-                </div>
-              </div>
-
-              <div>
-                <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
-                  Confirm password
-                </label>
-                <div className="mt-1">
-                  <input
-                    id="confirmPassword"
-                    name="confirmPassword"
-                    type="password"
-                    autoComplete="new-password"
-                    value={formData.confirmPassword}
-                    onChange={handleChange}
-                    className={`form-input w-full px-3 py-2 border border-gray-300 rounded ${formErrors.confirmPassword ? 'border-red-500' : ''}`}
-                  />
-                  {formErrors.confirmPassword && (
-                    <p className="mt-1 text-sm text-red-600">{formErrors.confirmPassword}</p>
-                  )}
-                </div>
-              </div>
-
-              <div className="flex items-center">
-                <input
-                  id="admin"
-                  name="admin"
-                  type="checkbox"
-                  checked={formData.admin}
-                  onChange={handleChange}
-                  className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
-                />
-                <label htmlFor="admin" className="ml-2 block text-sm text-gray-900">
-                  Register as Admin
-                </label>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div className="text-sm">
+              {/* Login Link */}
+              <div className="mt-6 text-center">
+                <p className="text-sm text-gray-600">
+                  Already have an account?{' '}
                   <Link to="/login" className="font-medium text-indigo-600 hover:text-indigo-500">
-                    Already have an account?
+                    Sign in
                   </Link>
-                </div>
+                </p>
               </div>
 
-              <div>
+              {/* Submit Button */}
+              <div className="mt-8">
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+                  className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 transition-colors duration-200"
                 >
-                  {isLoading ? 'Creating account...' : 'Sign up'}
+                  {isLoading ? 'Creating account...' : 'Create Account'}
                 </button>
               </div>
-            </form>
+              </form>
+            </div>
           </div>
         </div>
       </div>
-    </div>
+  
   );
 };
 

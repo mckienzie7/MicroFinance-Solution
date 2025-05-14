@@ -24,6 +24,13 @@ const secureStorage = {
     localStorage.removeItem('user');
   },
 
+  // Clear session ID
+  clearSessionId: () => {
+    localStorage.removeItem('session_id');
+    document.cookie = 'session_id=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+    localStorage.removeItem('user');
+  },
+
   // Store session ID from cookie
   setSessionId: (sessionId) => {
     if (!sessionId) return;
@@ -80,17 +87,43 @@ const authService = {
   getSessionId: secureStorage.getSessionId,
   
   // Register a new user
-  register: async (userData) => {
+  register: async (userData, isMultipart = false) => {
     try {
-      const response = await api.post('/users/Register', userData);
+      let payload;
       
+      if (isMultipart) {
+        // If it's FormData, use it directly
+        payload = userData;
+      } else {
+        // If it's JSON, create the payload object
+        payload = {
+          username: userData.username,
+          email: userData.email,
+          password: userData.password,
+          fullName: userData.fullName,
+          phoneNumber: userData.phoneNumber,
+          admin: "False"
+        };
+      }
+
+      // Send the request
+      const response = await api.post('/users/register', payload, {
+        headers: isMultipart ? {
+          'Content-Type': 'multipart/form-data'
+        } : {
+          'Content-Type': 'application/json'
+        }
+      });
+
       // Extract user data from the response
       const user = {
         email: response.data.email,
-        username: response.data.username || userData.username,
-        admin: userData.admin === true || userData.admin === 'True'
+        username: response.data.username,
+        fullname: response.data.fullname,
+        phone_number: response.data.phone_number,
+        message: response.data.message
       };
-      
+
       secureStorage.setUser(user);
       return user;
     } catch (error) {
@@ -113,6 +146,8 @@ const authService = {
         email: credentials.email,
         username: credentials.email.split('@')[0],
         admin: isAdmin,
+        username: credentials.email.split('@')[0],
+        admin: isAdmin,
         role: isAdmin ? 'admin' : 'user',
         createdAt: new Date().toISOString()
       };
@@ -127,6 +162,7 @@ const authService = {
     
     // Normal login flow for production
     try {
+      console.log('Submitting login form with:', credentials);
       console.log('Submitting login form with:', credentials);
       const response = await api.post('/users/login', credentials);
       console.log('Login response:', response);
@@ -145,6 +181,9 @@ const authService = {
       } else {
         console.log('Using actual username from database:', username);
       }
+      
+      console.log('Login response:', response);
+      console.log('Login response data:', response.data);
       
       const user = {
         email: response.data.email,
@@ -209,11 +248,13 @@ const authService = {
       await api.delete('/users/logout');
       secureStorage.clearUser();
       secureStorage.clearSessionId();
+      secureStorage.clearSessionId();
       return true;
     } catch (error) {
       console.error('Logout error:', error);
       // Even if the API call fails, clear local data
       secureStorage.clearUser();
+      secureStorage.clearSessionId();
       secureStorage.clearSessionId();
       throw error.response?.data || { message: 'Logout failed on server, but you have been logged out locally.' };
     }
@@ -242,6 +283,10 @@ const authService = {
         secureStorage.clearSessionId();
         throw { response: { status: 401 } };
       }
+      
+      
+      
+     
       
       return user;
     } catch (error) {
@@ -302,6 +347,31 @@ const authService = {
   getUserRole: () => {
     const user = secureStorage.getUser();
     return user ? (user.admin ? 'admin' : 'user') : null;
+  },
+
+  // Request password reset
+  requestPasswordReset: async (email) => {
+    try {
+      const response = await api.post('/users/forgot-password', { email });
+      return response.data;
+    } catch (error) {
+      console.error('Password reset request error:', error);
+      throw error.response?.data || { message: 'Failed to request password reset. Please try again.' };
+    }
+  },
+
+  // Reset password with token
+  resetPassword: async (token, newPassword) => {
+    try {
+      const response = await api.post('/users/reset-password', { 
+        reset_token: token, 
+        password: newPassword 
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Password reset error:', error);
+      throw error.response?.data || { message: 'Failed to reset password. Please try again.' };
+    }
   },
 
   // Request password reset
