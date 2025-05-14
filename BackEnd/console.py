@@ -6,8 +6,6 @@ import models
 from models.base_model import BaseModel
 from BackEnd.models.user import User
 from models.Account import Account
-from models.Admin import Admin
-from models.Customer import Customer
 from models.Loan import Loan
 from BackEnd.models.Repayment import Repayment
 from models.Transaction import Transaction

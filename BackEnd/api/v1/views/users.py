@@ -7,9 +7,12 @@ from werkzeug import Response
 from BackEnd.models.user import User
 from BackEnd.models import storage
 from BackEnd.api.v1.views import app_views
-from flask import abort, jsonify, make_response, request, redirect
+from flask import abort, jsonify, make_response, request, redirect, send_file
 from flasgger.utils import swag_from
 from BackEnd.Controllers.AuthController import AuthController
+import os
+from werkzeug.utils import secure_filename
+
 @app_views.route('/users', methods=['GET'], strict_slashes=False)
 @swag_from('documentation/user/all_users.yml')
 def get_users():
@@ -172,7 +175,7 @@ def login() -> tuple[Any, int] | Any:
         # Always use the actual username from the database
         # This is what the user entered during registration
         username = user.username
-        
+        admin = user.admin
         # If username is None or empty, use a fallback
         if not username:
             username = email.split('@')[0]
@@ -187,6 +190,7 @@ def login() -> tuple[Any, int] | Any:
     resp = jsonify({
         "email": email, 
         "username": username,
+        "admin": admin,
         "message": "logged in"
     })
     # Set cookie with proper attributes for CORS
@@ -297,3 +301,164 @@ def reset_password():
     storage.save()
     
     return make_response(jsonify({'message': 'Password has been reset successfully'}), 200)
+
+@app_views.route('/users/<user_id>/profile-picture', methods=['POST'], strict_slashes=False)
+@swag_from('documentation/user/upload_profile_picture.yml')
+def upload_profile_picture(user_id):
+    """
+    Upload or update user's profile picture
+    """
+    user = storage.get(User, user_id)
+    if not user:
+        abort(404)
+
+    if 'profile_picture' not in request.files:
+        return make_response(jsonify({'error': 'No file provided'}), 400)
+
+    file = request.files['profile_picture']
+    if file.filename == '':
+        return make_response(jsonify({'error': 'No file selected'}), 400)
+
+    # Check if file is an image
+    allowed_extensions = {'png', 'jpg', 'jpeg', 'gif'}
+    if '.' not in file.filename or \
+       file.filename.rsplit('.', 1)[1].lower() not in allowed_extensions:
+        return make_response(jsonify({'error': 'Invalid file type'}), 400)
+
+    try:
+        if user.update_profile_picture(file):
+            return make_response(jsonify({
+                'message': 'Profile picture updated successfully',
+                'profile_picture_url': user.get_profile_picture_url()
+            }), 200)
+        return make_response(jsonify({'error': 'Failed to update profile picture'}), 400)
+    except Exception as e:
+        return make_response(jsonify({'error': str(e)}), 500)
+
+@app_views.route('/users/<user_id>/fayda-document', methods=['POST'], strict_slashes=False)
+@swag_from('documentation/user/upload_fayda_document.yml')
+def upload_fayda_document(user_id):
+    """
+    Upload or update user's Fayda document
+    """
+    user = storage.get(User, user_id)
+    if not user:
+        abort(404)
+
+    if 'fayda_document' not in request.files:
+        return make_response(jsonify({'error': 'No file provided'}), 400)
+
+    file = request.files['fayda_document']
+    if file.filename == '':
+        return make_response(jsonify({'error': 'No file selected'}), 400)
+
+    # Check if file is a document
+    allowed_extensions = {'pdf', 'jpg', 'jpeg', 'png'}
+    if '.' not in file.filename or \
+       file.filename.rsplit('.', 1)[1].lower() not in allowed_extensions:
+        return make_response(jsonify({'error': 'Invalid file type'}), 400)
+
+    try:
+        if user.update_fayda_document(file):
+            return make_response(jsonify({
+                'message': 'Fayda document updated successfully',
+                'fayda_document_url': user.get_fayda_document_url()
+            }), 200)
+        return make_response(jsonify({'error': 'Failed to update Fayda document'}), 400)
+    except Exception as e:
+        return make_response(jsonify({'error': str(e)}), 500)
+
+@app_views.route('/users/<user_id>/profile', methods=['GET'], strict_slashes=False)
+@swag_from('documentation/user/get_user_profile.yml')
+def get_user_profile(user_id):
+    """
+    Get user's profile information including profile picture and Fayda document URLs
+    """
+    user = storage.get(User, user_id)
+    if not user:
+        abort(404)
+
+    profile_data = user.to_dict()
+    profile_data.update({
+        'profile_picture_url': user.get_profile_picture_url(),
+        'fayda_document_url': user.get_fayda_document_url()
+    })
+    
+    return jsonify(profile_data)
+
+@app_views.route('/users/<user_id>/profile-picture/download', methods=['GET'], strict_slashes=False)
+@swag_from('documentation/user/download_profile_picture.yml')
+def download_profile_picture(user_id):
+    """
+    Download user's profile picture
+    """
+    user = storage.get(User, user_id)
+    if not user:
+        abort(404)
+
+    if not user.profile_picture_path:
+        return make_response(jsonify({'error': 'No profile picture found'}), 404)
+
+    try:
+        file_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 
+                                'static', user.profile_picture_path)
+        
+        if not os.path.exists(file_path):
+            return make_response(jsonify({'error': 'Profile picture file not found'}), 404)
+
+        # Get the original filename from the path
+        original_filename = os.path.basename(user.profile_picture_path)
+        # Remove the user ID prefix from the filename
+        original_filename = '_'.join(original_filename.split('_')[1:])
+
+        return send_file(
+            file_path,
+            as_attachment=True,
+            download_name=original_filename,
+            mimetype='image/jpeg'  # Adjust based on file type
+        )
+    except Exception as e:
+        return make_response(jsonify({'error': str(e)}), 500)
+
+@app_views.route('/users/<user_id>/fayda-document/download', methods=['GET'], strict_slashes=False)
+@swag_from('documentation/user/download_fayda_document.yml')
+def download_fayda_document(user_id):
+    """
+    Download user's Fayda document
+    """
+    user = storage.get(User, user_id)
+    if not user:
+        abort(404)
+
+    if not user.fayda_document_path:
+        return make_response(jsonify({'error': 'No Fayda document found'}), 404)
+
+    try:
+        file_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 
+                                'static', user.fayda_document_path)
+        
+        if not os.path.exists(file_path):
+            return make_response(jsonify({'error': 'Fayda document file not found'}), 404)
+
+        # Get the original filename from the path
+        original_filename = os.path.basename(user.fayda_document_path)
+        # Remove the user ID prefix from the filename
+        original_filename = '_'.join(original_filename.split('_')[1:])
+
+        # Determine the correct mimetype based on file extension
+        file_extension = os.path.splitext(original_filename)[1].lower()
+        mimetype = {
+            '.pdf': 'application/pdf',
+            '.jpg': 'image/jpeg',
+            '.jpeg': 'image/jpeg',
+            '.png': 'image/png'
+        }.get(file_extension, 'application/octet-stream')
+
+        return send_file(
+            file_path,
+            as_attachment=True,
+            download_name=original_filename,
+            mimetype=mimetype
+        )
+    except Exception as e:
+        return make_response(jsonify({'error': str(e)}), 500)
