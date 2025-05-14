@@ -121,20 +121,23 @@ class DBStorage:
         return count
 
     def cleanup_expired_sessions(self):
-        """
-            Remove expired sessions from database
-        :return: Nothing
-        """
-        current_time = datetime.utcnow()
-        expired_users = self.__session.query(User).filter(User.session_expiration < current_time).all()
-
-        for user in expired_users:
-            # Remove session ID and expiration from the user
-            user.session_id = None
-            user.session_expiration = None
-
-    # Commit the changes to the database
-        self.__session.commit()
+        """Clean up expired sessions from the database."""
+        try:
+            current_time = datetime.utcnow()
+            # Find users with expired sessions
+            expired_users = self.__session.query(User).filter(
+                User.session_expiration < current_time
+            ).all()
+            
+            # Clear their session data
+            for user in expired_users:
+                user.session_id = None
+                user.session_expiration = None
+            
+            self.__session.commit()
+        except Exception as e:
+            print(f"Error cleaning up expired sessions: {e}")
+            self.__session.rollback()
 
 
 

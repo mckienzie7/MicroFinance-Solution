@@ -12,6 +12,7 @@ from flasgger.utils import swag_from
 from BackEnd.Controllers.AuthController import AuthController
 import os
 from werkzeug.utils import secure_filename
+import re
 
 @app_views.route('/users', methods=['GET'], strict_slashes=False)
 @swag_from('documentation/user/all_users.yml')
@@ -120,32 +121,78 @@ def put_user(user_id):
     storage.save()
     return make_response(jsonify(user.to_dict()), 200)
 
-@app_views.route('/users/Register', methods=['POST'], strict_slashes=False)
+@app_views.route('/users/register', methods=['POST'], strict_slashes=False)
 @swag_from('documentation/user/Register.yml', methods=['POST'])
-def Register():
-    """ Register a new user
-    """
-    data = request.get_json()
-    if not data:
-        return jsonify({'message': 'No input data provided'}), 400
-    username = data.get("username")
-    email = data.get("email")
-    password = data.get("password")
-    admin = data.get("admin")
-    if admin == "False":
-        admin = False
-    elif admin == "True":
-        admin = True
-    print(f"Username: {username}, Email: {email}, Password: {password}")
-
-    if not username or not email or not password:
-        return jsonify({"message": "Missing username, email or password"}), 400
-    auth = AuthController()
+def register():
+    """ Register a new user """
     try:
-        new_user = auth.register_user(username, email, password, admin)
-        return jsonify({"username": new_user.username, "email": new_user.email, "message": "user created"})
-    except ValueError:
-        return jsonify({"message": "email already registered"}), 400
+        # Handle both JSON and multipart form data
+        if request.is_json:
+            data = request.get_json()
+            if not data:
+                return jsonify({'message': 'No input data provided'}), 400
+        else:
+            data = request.form.to_dict()
+            if not data:
+                return jsonify({'message': 'No input data provided'}), 400
+
+        # Extract required fields
+        username = data.get("username")
+        email = data.get("email")
+        password = data.get("password")
+        fullname = data.get("fullName")
+        phone_number = data.get("phoneNumber")
+        admin = data.get("admin", "False")
+        
+        # Convert admin to boolean
+        admin = admin.lower() == "true"
+
+        # Validate required fields
+        if not all([username, email, password, fullname, phone_number]):
+            return jsonify({"message": "Missing required fields"}), 400
+
+        # Validate email format
+        if not re.match(r"[^@]+@[^@]+\.[^@]+", email):
+            return jsonify({"message": "Invalid email format"}), 400
+
+        # Validate password strength
+        if len(password) < 6:
+            return jsonify({"message": "Password must be at least 6 characters"}), 400
+
+        # Handle file upload if present
+        fayda_document = request.files.get('idPicture')
+        if fayda_document and fayda_document.filename:
+            # Validate file type
+            allowed_extensions = {'pdf', 'jpg', 'jpeg', 'png'}
+            if '.' not in fayda_document.filename or \
+               fayda_document.filename.rsplit('.', 1)[1].lower() not in allowed_extensions:
+                return jsonify({"message": "Invalid file type. Allowed types: PDF, JPG, JPEG, PNG"}), 400
+        
+        auth = AuthController()
+        try:
+            new_user = auth.register_user(
+                username=username,
+                email=email,
+                password=password,
+                admin=admin,
+                fullname=fullname,
+                phone_number=phone_number,
+                fayda_document=fayda_document
+            )
+            
+            return jsonify({
+                "username": new_user.username,
+                "email": new_user.email,
+                "fullname": new_user.fullname,
+                "phone_number": new_user.phone_number,
+                "message": "User created successfully"
+            }), 201
+            
+        except ValueError as e:
+            return jsonify({"message": str(e)}), 400
+            
+    except Exception as e:
+        return jsonify({"message": str(e)}), 500
 
 
 @app_views.route('/users/login', methods=['POST'], strict_slashes=False)
