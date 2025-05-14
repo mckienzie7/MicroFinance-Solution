@@ -18,7 +18,7 @@ const SavingsControl = () => {
     const fetchDeposits = async () => {
       try {
         setLoading(true);
-        const response = await api.get('/savings/deposits', {
+        const response = await api.get('/accounts/<account_id>/deposit', {
           params: { page: currentPage, limit: itemsPerPage }
         });
         setDeposits(response.data.deposits || []);

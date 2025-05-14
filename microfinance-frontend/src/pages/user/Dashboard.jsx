@@ -52,7 +52,7 @@ const Dashboard = () => {
   // Verify API endpoints are available
   const verifyApiEndpoints = async () => {
     try {
-      await api.get('/api/v1');
+      await api.get('/users');
       return true;
     } catch (err) {
       console.error('API verification failed:', err);
@@ -87,18 +87,15 @@ const Dashboard = () => {
         throw new Error('API not available');
       }
       
-      // Get customer ID
-      const customersResponse = await fetchWithRetry('/customers');
-      const customers = customersResponse.data;
-      const customer = customers.find(c => c.email === user.email);
-      
+      // Use user object directly as customer
+      const customer = user;
       if (!customer) {
-        setError('Customer profile not found. Please update your profile first.');
-        throw new Error('Customer profile not found');
+        setError('User profile not found. Please update your profile first.');
+        return;
       }
       
       // Get accounts for balance
-      const accountsResponse = await api.get(`/customers/${customer.id}/accounts`);
+      const accountsResponse = await api.get(`/users/${customer.id}/accounts`);
       const accounts = accountsResponse.data || [];
       
       // Get loans for loan progress

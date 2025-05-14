@@ -45,12 +45,9 @@ const LoanRepayment = () => {
     
     try {
       // Get the current user's customer ID
-      const customersResponse = await api.get('/customers');
-      const customers = customersResponse.data;
-      const customer = customers.find(c => c.email === user.email);
-      
+      const customer = user;
       if (!customer) {
-        setError('Customer profile not found. Please update your profile first.');
+        setError('User profile not found. Please update your profile first.');
         return;
       }
       

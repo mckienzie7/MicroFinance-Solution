@@ -97,23 +97,30 @@ def deposit(account_id):
     """
     Deposits money into an account
     """
+    print(f"[DEBUG] deposit called with account_id={account_id}")
     if not request.get_json():
         abort(400, description="Not a JSON")
 
     data = request.get_json()
     amount = data.get('amount')
+    print(f"[DEBUG] deposit amount from request: {amount} (type: {type(amount)})")
     if not amount or amount <= 0:
         abort(400, description="Invalid amount")
 
     account = storage.get(Account, account_id)
+    print(f"[DEBUG] storage.get(Account, {account_id}) returned: {account}")
     if not account:
         abort(404)
 
     controller = AccountController()
     try:
-        updated_account = controller.deposit(account, amount)
+        print(f"[DEBUG] Calling controller.deposit(account.id={account.id}, amount={amount})")
+        controller.deposit(account.id, amount)
+        updated_account = storage.get(Account, account.id)
+        print(f"[DEBUG] Updated account after deposit: {updated_account}")
         return make_response(jsonify(updated_account.to_dict()), 200)
-    except ValueError as e:
+    except Exception as e:
+        print(f"[ERROR] Exception in deposit: {e}")
         return make_response(jsonify({"error": str(e)}), 400)
 
 @app_views.route('/accounts/<account_id>/withdraw', methods=['POST'], strict_slashes=False)
