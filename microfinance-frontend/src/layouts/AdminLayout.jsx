@@ -64,7 +64,7 @@ const AdminLayout = () => {
           <div className="flex-1 h-0 pt-5 pb-4 overflow-y-auto">
             <div className="flex items-center justify-center">
               <Link to="/" className="flex items-center">
-                <span className="text-2xl font-bold bg-gradient-to-r from-gray-800 to-blue-400 bg-clip-text text-transparent">
+                <span className="text-2xl font-bold text-gray-800">
                   MF-Solution
                 </span>
               </Link>
@@ -109,7 +109,7 @@ const AdminLayout = () => {
           <div className="flex-1 flex flex-col pt-5 pb-4 overflow-y-auto">
             <div className="flex items-center justify-center">
               <Link to="/" className="flex items-center">
-                <span className="text-2xl font-bold bg-gradient-to-r from-gray-800 to-blue-400 bg-clip-text text-transparent">
+                <span className="text-2xl font-bold text-gray-800">
                   MF-Solution
                 </span>
               </Link>
