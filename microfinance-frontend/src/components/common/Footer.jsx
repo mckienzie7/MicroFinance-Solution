@@ -88,7 +88,7 @@ const Footer = () => {
           <div className="flex items-center justify-center">
             <Link to="/" className="flex items-center">
               
-              <span className="text-2xl font-bold bg-gradient-to-r from-gray-800 to-blue-400 bg-clip-text text-transparent">
+              <span className="text-2xl font-bold  text-gray-800">
                 MF-Solution
               </span>
             </Link>
