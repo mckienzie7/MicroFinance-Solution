@@ -87,34 +87,26 @@ const authService = {
   getSessionId: secureStorage.getSessionId,
   
   // Register a new user
-  register: async (userData, isMultipart = false) => {
+  register: async (userData) => {
     try {
-      let response;
-      
-      if (isMultipart) {
-        // For FormData with file uploads
-        response = await api.post('/users/Register', userData, {
-          headers: {
-            'Content-Type': 'multipart/form-data'
-          }
-        });
-      } else {
-        // For regular JSON data
-        response = await api.post('/users/Register', userData);
-      }
-      
+      // Prepare the payload as JSON, as expected by the backend
+      const payload = {
+        username: userData.username,
+        email: userData.email,
+        password: userData.password,
+        admin: "False" // Always register as a regular user
+      };
+
+      // Send as JSON
+      const response = await api.post('/users/Register', payload);
+
       // Extract user data from the response
       const user = {
         email: response.data.email,
-        username: response.data.username || 
-          (isMultipart ? userData.get('username') : userData.username),
-        fullName: response.data.fullName || 
-          (isMultipart ? userData.get('fullName') : userData.fullName),
-        admin: isMultipart ? 
-          (userData.get('admin') === 'True') : 
-          (userData.admin === true || userData.admin === 'True')
+        username: response.data.username,
+        message: response.data.message
       };
-      
+
       secureStorage.setUser(user);
       return user;
     } catch (error) {
