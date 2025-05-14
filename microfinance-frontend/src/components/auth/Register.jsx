@@ -112,6 +112,9 @@ const Register = () => {
     // Clear any previous errors
     setRegistrationError('');
     
+    // Clear any previous errors
+    setRegistrationError('');
+    
     if (validateForm()) {
       try {
         // Create FormData object for file upload
@@ -141,6 +144,15 @@ const Register = () => {
         }, 2000);
       } catch (error) {
         console.error('Registration error:', error);
+        
+        // Check for specific error messages
+        if (error.message && error.message.includes('already registered')) {
+          setRegistrationError('This email is already registered. Please use a different email or try logging in.');
+        } else if (error.message) {
+          setRegistrationError(error.message);
+        } else {
+          setRegistrationError('Registration failed. Please try again.');
+        }
         
         // Check for specific error messages
         if (error.message && error.message.includes('already registered')) {

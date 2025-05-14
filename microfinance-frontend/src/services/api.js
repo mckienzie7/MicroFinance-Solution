@@ -6,7 +6,9 @@ const api = axios.create({
   baseURL: '/api/v1',
   headers: {
     'Content-Type': 'application/json'
+    'Content-Type': 'application/json'
   },
+  withCredentials: true // Enable sending cookies for cross-domain requests
   withCredentials: true // Enable sending cookies for cross-domain requests
 });
 
@@ -44,7 +46,9 @@ api.interceptors.response.use(
     // Handle authentication errors
     if (response && response.status === 401) {
       // Clear user and session from sessionStorage
+      // Clear user and session from sessionStorage
       sessionStorage.removeItem('user');
+      sessionStorage.removeItem('session_id');
       sessionStorage.removeItem('session_id');
       
       // Only redirect if we're not already on the login page
