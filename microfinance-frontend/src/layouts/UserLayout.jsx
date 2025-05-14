@@ -1,9 +1,8 @@
 import { useState } from 'react';
 import { Outlet, NavLink, useNavigate, Link } from 'react-router-dom';
-import { Outlet, NavLink, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import UserProfileDisplay from '../components/common/UserProfileDisplay';
-import UserProfileDisplay from '../components/common/UserProfileDisplay';
+
 import { 
   HomeIcon, 
   CreditCardIcon, 
@@ -19,9 +18,6 @@ const UserLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  
-  // Debug logging for user object in UserLayout
-  console.log('UserLayout - User object:', user);
   
   // Debug logging for user object in UserLayout
   console.log('UserLayout - User object:', user);
@@ -99,7 +95,9 @@ const UserLayout = () => {
           </div>
           
           <div className="flex-shrink-0 flex border-t border-gray-200 p-4">
-            <UserProfileDisplay user={user} onLogout={handleLogout} />
+            <div className="flex-shrink-0 w-full">
+              <UserProfileDisplay user={user} onLogout={handleLogout} />
+            </div>
           </div>
         </div>
         
@@ -143,8 +141,6 @@ const UserLayout = () => {
           </div>
           
           <div className="flex-shrink-0 flex border-t border-gray-200 p-4">
-            <div className="flex-shrink-0 w-full">
-              <UserProfileDisplay user={user} onLogout={handleLogout} />
             <div className="flex-shrink-0 w-full">
               <UserProfileDisplay user={user} onLogout={handleLogout} />
             </div>

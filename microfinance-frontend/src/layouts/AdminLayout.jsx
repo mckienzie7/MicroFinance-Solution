@@ -1,8 +1,6 @@
 import { useState } from 'react';
 import { Outlet, NavLink, useNavigate, Link } from 'react-router-dom';
-import { Outlet, NavLink, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import UserProfileDisplay from '../components/common/UserProfileDisplay';
 import UserProfileDisplay from '../components/common/UserProfileDisplay';
 import { 
   HomeIcon, 
@@ -76,8 +74,6 @@ const AdminLayout = () => {
               <h1 className="text-xl font-bold">
                 <span className="text-gray-900">Admin</span>
                 <span className="ml-1 text-sm text-gray-500">Portal</span>
-                <span className="text-gray-900">Admin</span>
-                <span className="ml-1 text-sm text-gray-500">Portal</span>
               </h1>
             </div>
             <nav className="mt-5 px-2 space-y-1">
@@ -99,7 +95,6 @@ const AdminLayout = () => {
           
           <div className="flex-shrink-0 flex border-t border-gray-200 p-4">
             <UserProfileDisplay user={user} onLogout={handleLogout} />
-            <UserProfileDisplay user={user} onLogout={handleLogout} />
           </div>
         </div>
         
@@ -113,7 +108,7 @@ const AdminLayout = () => {
         <div className="flex-1 flex flex-col min-h-0 border-r border-gray-200 bg-white">
           <div className="flex-1 flex flex-col pt-5 pb-4 overflow-y-auto">
             <div className="flex items-center justify-center">
-              <Link to="/" className="flex items-center">
+              <Link to="/" className="flex items-items">
                 <span className="text-2xl font-bold text-gray-800">
                   MF-Solution
                 </span>
@@ -121,8 +116,6 @@ const AdminLayout = () => {
             </div>
             <div className="flex items-center justify-center flex-shrink-0 px-4">
               <h1 className="text-xl font-bold">
-                <span className="text-gray-900">Admin</span>
-                <span className="ml-1 text-sm text-gray-500">Portal</span>
                 <span className="text-gray-900">Admin</span>
                 <span className="ml-1 text-sm text-gray-500">Portal</span>
               </h1>
@@ -144,7 +137,6 @@ const AdminLayout = () => {
           </div>
           
           <div className="flex-shrink-0 flex border-t border-gray-200 p-4">
-            <UserProfileDisplay user={user} onLogout={handleLogout} />
             <UserProfileDisplay user={user} onLogout={handleLogout} />
           </div>
         </div>
