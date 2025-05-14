@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Outlet, NavLink, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import UserProfileDisplay from '../components/common/UserProfileDisplay';
+
 import { 
   HomeIcon, 
   CreditCardIcon, 
@@ -26,10 +27,13 @@ const UserLayout = () => {
     navigate('/login');
   };
 
+  const handleNavigation = () => {
+    setSidebarOpen(false);
+  };
+
   const navigation = [
     { name: 'Dashboard', href: '/user/dashboard', icon: HomeIcon },
     { name: 'Savings Account', href: '/user/savings', icon: BanknotesIcon },
-
     { name: 'My Loans', href: '/user/loans', icon: CreditCardIcon },
     { name: 'Loan Repayment', href: '/user/pay-loan', icon: CreditCardIcon },
     { name: 'AI Credit Score', href: '/user/credit-score', icon: DocumentTextIcon },
@@ -59,21 +63,18 @@ const UserLayout = () => {
           </div>
           
           <div className="flex-1 h-0 pt-5 pb-4 overflow-y-auto">
-
-          <div className="flex items-center justify-center">
-                                    <Link to="/" className="flex items-center">
-                                      
-                                      <span className="text-2xl font-bold bg-gradient-to-r from-gray-800 to-blue-400 bg-clip-text text-transparent">
-                                        MF-Solution
-                                      </span>
-                                    </Link>
-                                  </div>
+            <div className="flex items-center justify-center">
+              <Link to="/" className="flex items-center">
+                <span className="text-2xl font-bold text-gray-800">
+                  MF-Solution
+                </span>
+              </Link>
+            </div>
 
             <div className="flex-shrink-0 flex items-center justify-center px-4">
               <h1 className="text-xl font-bold">
-                
-              <span className="text-gray-900">User</span>
-              <span className="ml-1 text-sm text-gray-500">Portal</span>
+                <span className="text-gray-900">User</span>
+                <span className="ml-1 text-sm text-gray-500">Portal</span>
               </h1>
             </div>
             <nav className="mt-5 px-2 space-y-1">
@@ -81,6 +82,7 @@ const UserLayout = () => {
                 <NavLink
                   key={item.name}
                   to={item.href}
+                  onClick={handleNavigation}
                   className={({ isActive }) => 
                     `sidebar-link ${isActive ? 'active' : ''}`
                   }
@@ -93,8 +95,9 @@ const UserLayout = () => {
           </div>
           
           <div className="flex-shrink-0 flex border-t border-gray-200 p-4">
-            <UserProfileDisplay user={user} onLogout={handleLogout} />
-            
+            <div className="flex-shrink-0 w-full">
+              <UserProfileDisplay user={user} onLogout={handleLogout} />
+            </div>
           </div>
         </div>
         
@@ -107,19 +110,16 @@ const UserLayout = () => {
       <div className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0">
         <div className="flex-1 flex flex-col min-h-0 border-r border-gray-200 bg-white">
           <div className="flex-1 flex flex-col pt-5 pb-4 overflow-y-auto">
-
             <div className="flex items-center justify-center">
-                                    <Link to="/" className="flex items-center">
-                                      
-                                      <span className="text-2xl font-bold bg-gradient-to-r from-gray-800 to-blue-400 bg-clip-text text-transparent">
-                                        MF-Solution
-                                      </span>
-                                    </Link>
-                                  </div>
+              <Link to="/" className="flex items-center">
+                <span className="text-2xl font-bold text-gray-800">
+                  MF-Solution
+                </span>
+              </Link>
+            </div>
 
             <div className="flex items-center justify-center flex-shrink-0 px-4">
               <h1 className="text-xl font-bold">
-                
                 <span className="text-gray-900">User</span>
                 <span className="ml-1 text-sm text-gray-500">Portal</span>
               </h1>

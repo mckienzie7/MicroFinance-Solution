@@ -2,7 +2,7 @@
 """User Class"""
 
 from BackEnd.models.base_model import BaseModel, Base
-from sqlalchemy import Column, String, Integer, Text, Boolean, LargeBinary
+from sqlalchemy import Column, String, Integer, Text, Boolean, LargeBinary, DateTime
 from sqlalchemy.orm import relationship
 import bcrypt
 from BackEnd.models.Notification import Notification
@@ -26,6 +26,7 @@ class User(BaseModel, Base):
     bio = Column(Text)
     admin = Column(Boolean, nullable=True, default=False)
     session_id = Column(String(250))
+    session_expiration = Column(DateTime)  # Add session expiration field
     reset_token = Column(String(250))
     gender = Column(String(10))
     age = Column(Integer)

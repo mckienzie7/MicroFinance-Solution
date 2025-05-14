@@ -22,18 +22,13 @@ const UserManagement = () => {
   // Verify API endpoints are available
   const verifyApiEndpoints = async () => {
     try {
-      // Try a simple endpoint that doesn't require authentication
-      // We'll just check if the server is responding
-      // Use '/status' instead of '/api/v1/status' to avoid duplication
       await api.get('/status');
       return true;
     } catch (err) {
       console.error('API verification failed:', err);
-      // If we get a 401 Unauthorized error, the API is working but requires auth
       if (err.response && err.response.status === 401) {
         return true;
       }
-      // Skip API verification for now and continue with mock data
       console.log('Skipping API verification and using mock data');
       return true;
     }
@@ -45,14 +40,10 @@ const UserManagement = () => {
     setError(null);
     
     try {
-      // Fetch real user data from the API
       const response = await api.post('/users', { admin: "True" });
       
       if (response.data && Array.isArray(response.data)) {
-        // Filter out admin users to only show normal users
         const normalUsers = response.data.filter(user => user.admin !== true);
-        
-        // Process and format the user data
         const formattedUsers = normalUsers.map(user => ({
           id: user.id,
           username: user.username || 'N/A',
@@ -64,7 +55,6 @@ const UserManagement = () => {
         
         setUsers(formattedUsers);
       } else {
-        // If response doesn't contain data or isn't an array, set empty array
         console.warn('API response did not contain valid user data');
         setUsers([]);
         setError('No user data available from the server');
@@ -72,7 +62,6 @@ const UserManagement = () => {
     } catch (err) {
       console.error('Error fetching users:', err);
       if (err.response) {
-        // Handle specific HTTP error responses
         switch (err.response.status) {
           case 401:
             setError('Unauthorized. You need admin privileges to view users.');
@@ -102,7 +91,6 @@ const UserManagement = () => {
     setIsLoading(true);
     try {
       await api.delete(`/users/${userId}`);
-      // Refresh the user list after deletion
       fetchUsers();
     } catch (err) {
       console.error('Error deleting user:', err);
@@ -132,21 +120,38 @@ const UserManagement = () => {
   }, []);
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div className="space-y-4 p-4 md:p-6">
+      <div className="flex flex-col gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">User Management</h2>
-          <p className="mt-1 text-gray-500">Manage all system users and their permissions</p>
+          <h2 className="text-xl md:text-2xl font-bold text-gray-900">User Management</h2>
+          <p className="mt-1 text-sm md:text-base text-gray-500">Manage all system users and their permissions</p>
         </div>
         
-        <button 
-          onClick={fetchUsers} 
-          disabled={isLoading}
-          className="flex items-center px-4 py-2 text-sm font-medium rounded-lg text-gray-700 hover:text-gray-900 hover:bg-gray-100 transition-colors"
-        >
-          <ArrowPathIcon className={`h-5 w-5 mr-2 ${isLoading ? 'animate-spin text-blue-500' : 'text-gray-500'}`} />
-          Refresh
-        </button>
+        <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
+          <div className="relative w-full sm:w-64">
+            <input
+              type="text"
+              placeholder="Search users..."
+              className="w-full pl-10 pr-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={searchTerm}
+              onChange={handleSearchChange}
+            />
+            <MagnifyingGlassIcon className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
+          </div>
+          
+          <div className="flex gap-2 w-full sm:w-auto">
+            <button 
+              onClick={fetchUsers} 
+              disabled={isLoading}
+              className="flex items-center px-3 py-2 text-sm font-medium rounded-lg text-gray-700 hover:text-gray-900 hover:bg-gray-100 transition-colors"
+            >
+              <ArrowPathIcon className={`h-5 w-5 ${isLoading ? 'animate-spin text-blue-500' : 'text-gray-500'}`} />
+              <span className="sr-only sm:not-sr-only sm:ml-2">Refresh</span>
+            </button>
+            
+         
+          </div>
+        </div>
       </div>
 
       {/* Error message */}
@@ -157,30 +162,8 @@ const UserManagement = () => {
         </div>
       )}
 
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <div className="relative">
-            <input
-              type="text"
-              placeholder="Search users..."
-              className="w-64 pl-10 pr-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              value={searchTerm}
-              onChange={handleSearchChange}
-            />
-            <MagnifyingGlassIcon className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
-          </div>
-          <button 
-            className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 flex items-center space-x-2"
-            onClick={() => setShowAddModal(true)}
-          >
-            <PlusIcon className="h-5 w-5" />
-            <span>Add New User</span>
-          </button>
-        </div>
-      </div>
-
       <div className="bg-white shadow rounded-lg overflow-hidden">
-        <div className="p-6">
+        <div className="p-4 md:p-6">
           {isLoading ? (
             <div className="flex justify-center items-center py-8">
               <ArrowPathIcon className="h-8 w-8 text-blue-500 animate-spin" />
@@ -194,46 +177,55 @@ const UserManagement = () => {
           ) : (
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
-                <thead>
+                <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Username</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">ID</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Username</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Email</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Role</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {filteredUsers.map((user) => (
                     <tr key={user.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{user.id}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{user.username || 'N/A'}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{user.email}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 hidden sm:table-cell">{user.id}</td>
+                      <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        <div className="flex flex-col">
+                          <span>{user.username || 'N/A'}</span>
+                          <span className="text-xs text-gray-500 md:hidden">{user.email}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 hidden md:table-cell">{user.email}</td>
+                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 hidden sm:table-cell">
                         {user.is_admin ? 'Admin' : 'User'}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-4 py-4 whitespace-nowrap">
                         <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${user.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
                           {user.is_active ? 'Active' : 'Inactive'}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <button 
-                          className="text-blue-600 hover:text-blue-900 mr-3"
-                          onClick={() => {
-                            setCurrentUser(user);
-                            setShowEditModal(true);
-                          }}
-                        >
-                          <PencilIcon className="h-5 w-5" />
-                        </button>
-                        <button 
-                          className="text-red-600 hover:text-red-900"
-                          onClick={() => deleteUser(user.id)}
-                        >
-                          <TrashIcon className="h-5 w-5" />
-                        </button>
+                      <td className="px-4 py-4 whitespace-nowrap text-sm font-medium">
+                        <div className="flex space-x-2">
+                          <button 
+                            className="text-blue-600 hover:text-blue-900"
+                            onClick={() => {
+                              setCurrentUser(user);
+                              setShowEditModal(true);
+                            }}
+                            aria-label="Edit user"
+                          >
+                            <PencilIcon className="h-5 w-5" />
+                          </button>
+                          <button 
+                            className="text-red-600 hover:text-red-900"
+                            onClick={() => deleteUser(user.id)}
+                            aria-label="Delete user"
+                          >
+                            <TrashIcon className="h-5 w-5" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -244,7 +236,7 @@ const UserManagement = () => {
         </div>
       </div>
       
-      {/* Add User Modal placeholder - to be implemented */}
+      {/* Add User Modal placeholder */}
       {/* {showAddModal && (
         <AddUserModal 
           onClose={() => setShowAddModal(false)} 
