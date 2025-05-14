@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Outlet, NavLink, useNavigate, Link } from 'react-router-dom';
+import { Outlet, NavLink, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import UserProfileDisplay from '../components/common/UserProfileDisplay';
 import UserProfileDisplay from '../components/common/UserProfileDisplay';
 import { 
   HomeIcon, 
@@ -74,6 +76,8 @@ const AdminLayout = () => {
               <h1 className="text-xl font-bold">
                 <span className="text-gray-900">Admin</span>
                 <span className="ml-1 text-sm text-gray-500">Portal</span>
+                <span className="text-gray-900">Admin</span>
+                <span className="ml-1 text-sm text-gray-500">Portal</span>
               </h1>
             </div>
             <nav className="mt-5 px-2 space-y-1">
@@ -94,6 +98,7 @@ const AdminLayout = () => {
           </div>
           
           <div className="flex-shrink-0 flex border-t border-gray-200 p-4">
+            <UserProfileDisplay user={user} onLogout={handleLogout} />
             <UserProfileDisplay user={user} onLogout={handleLogout} />
           </div>
         </div>
@@ -118,6 +123,8 @@ const AdminLayout = () => {
               <h1 className="text-xl font-bold">
                 <span className="text-gray-900">Admin</span>
                 <span className="ml-1 text-sm text-gray-500">Portal</span>
+                <span className="text-gray-900">Admin</span>
+                <span className="ml-1 text-sm text-gray-500">Portal</span>
               </h1>
             </div>
             <nav className="mt-5 flex-1 px-2 space-y-1">
@@ -137,6 +144,7 @@ const AdminLayout = () => {
           </div>
           
           <div className="flex-shrink-0 flex border-t border-gray-200 p-4">
+            <UserProfileDisplay user={user} onLogout={handleLogout} />
             <UserProfileDisplay user={user} onLogout={handleLogout} />
           </div>
         </div>

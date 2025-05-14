@@ -162,6 +162,7 @@ def login() -> tuple[Any, int] | Any:
     auth = AuthController()
     if not auth.valid_login(email, password):
         return jsonify({'message': 'Invalid email or password. Please check your credentials.'}), 401
+        return jsonify({'message': 'Invalid email or password. Please check your credentials.'}), 401
     session_id = auth.create_session(email)
     
     # Get the user's username from the database using the AuthController
@@ -217,8 +218,16 @@ def logout() -> Response:
     session_id = request.cookies.get("session_id")
     auth = AuthController()
     user = auth.get_user_from_session_id(session_id)
+    auth = AuthController()
+    user = auth.get_user_from_session_id(session_id)
     if user is None:
         abort(403)
+    auth.destroy_session(user.id)
+    
+    # Create a response that clears the session cookie
+    resp = jsonify({"message": "Logged out successfully"})
+    resp.set_cookie('session_id', '', expires=0)  # Clear the cookie
+    return resp
     auth.destroy_session(user.id)
     
     # Create a response that clears the session cookie

@@ -3,14 +3,17 @@ import api from './api';
 // Secure storage utility functions
 const secureStorage = {
   // Store user data securely (using localStorage for persistence across page refreshes)
+  // Store user data securely (using localStorage for persistence across page refreshes)
   setUser: (userData) => {
     if (!userData) return;
+    localStorage.setItem('user', JSON.stringify(userData));
     localStorage.setItem('user', JSON.stringify(userData));
   },
   
   // Get user data
   getUser: () => {
     try {
+      const userData = localStorage.getItem('user');
       const userData = localStorage.getItem('user');
       return userData ? JSON.parse(userData) : null;
     } catch (error) {
@@ -72,10 +75,64 @@ const secureStorage = {
   clearSessionId: () => {
     localStorage.removeItem('session_id');
     document.cookie = 'session_id=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+    localStorage.removeItem('user');
+  },
+
+  // Store session ID from cookie
+  setSessionId: (sessionId) => {
+    if (!sessionId) return;
+    localStorage.setItem('session_id', sessionId);
+    
+    // Also set as a cookie for cross-page consistency
+    document.cookie = `session_id=${sessionId}; path=/; samesite=lax; max-age=86400`;
+    console.log('Stored session ID in localStorage and cookie:', sessionId);
+  },
+
+  // Get session ID - try multiple sources
+  getSessionId: () => {
+    // First try localStorage
+    const storedId = localStorage.getItem('session_id');
+    if (storedId) {
+      // Only log in development mode
+      if (process.env.NODE_ENV === 'development') {
+        console.debug('Found session ID in localStorage');
+      }
+      return storedId;
+    }
+    
+    // Then try cookies
+    const cookies = document.cookie.split(';');
+    const sessionCookie = cookies.find(cookie => cookie.trim().startsWith('session_id='));
+    if (sessionCookie) {
+      const cookieId = sessionCookie.split('=')[1];
+      // Only log in development mode
+      if (process.env.NODE_ENV === 'development') {
+        console.debug('Found session ID in cookies');
+      }
+      // Store it in localStorage for future use
+      localStorage.setItem('session_id', cookieId);
+      return cookieId;
+    }
+    
+    // Only log this message once per session to avoid console spam
+    if (!window._hasLoggedNoSessionId) {
+      window._hasLoggedNoSessionId = true;
+      console.debug('No session ID found - user not logged in');
+    }
+    return null;
+  },
+
+  // Clear session ID
+  clearSessionId: () => {
+    localStorage.removeItem('session_id');
+    document.cookie = 'session_id=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
   }
 };
 
 const authService = {
+  // Direct access to storage functions
+  getSessionId: secureStorage.getSessionId,
+  
   // Direct access to storage functions
   getSessionId: secureStorage.getSessionId,
   
@@ -130,6 +187,8 @@ const authService = {
         email: credentials.email,
         username: credentials.email.split('@')[0],
         admin: isAdmin,
+        username: credentials.email.split('@')[0],
+        admin: isAdmin,
         role: isAdmin ? 'admin' : 'user',
         createdAt: new Date().toISOString()
       };
@@ -139,13 +198,72 @@ const authService = {
       // Set a mock session ID for development mode
       const devSessionId = 'dev-session-' + Date.now();
       secureStorage.setSessionId(devSessionId);
+      // Set a mock session ID for development mode
+      const devSessionId = 'dev-session-' + Date.now();
+      secureStorage.setSessionId(devSessionId);
       return mockUser;
     }
     
     // Normal login flow for production
     try {
       console.log('Submitting login form with:', credentials);
+      console.log('Submitting login form with:', credentials);
       const response = await api.post('/users/login', credentials);
+      console.log('Login response:', response);
+      
+      // Extract user data from the response
+      console.log('Login response data:', response.data);
+      
+      // Use the actual username from the backend response
+      // This is the username that was entered during registration
+      let username = response.data.username;
+      
+      // If username is undefined or null, fall back to email prefix
+      if (!username) {
+        username = response.data.email.split('@')[0];
+        console.log('Username not provided by backend, using email prefix as fallback:', username);
+      } else {
+        console.log('Using actual username from database:', username);
+      }
+      
+      const user = {
+        email: response.data.email,
+        username: username, // This will now always have a value
+        admin: credentials.email.includes('admin'), // Set admin based on email
+        role: credentials.email.includes('admin') ? 'admin' : 'user', // Explicitly set role
+        message: response.data.message
+      };
+      
+      console.log('Constructed user object:', user);
+      
+      console.log('User data after login:', user);
+      
+      // Force a small delay to allow the cookie to be set by the browser
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+      // Look for session ID in cookies
+      console.log('Checking for session cookie in document.cookie:', document.cookie);
+      
+      const cookies = document.cookie.split(';');
+      console.log('All cookies after login:', cookies);
+      
+      const sessionCookie = cookies.find(cookie => cookie.trim().startsWith('session_id='));
+      if (sessionCookie) {
+        const sessionId = sessionCookie.split('=')[1];
+        console.log('Session ID found in cookies:', sessionId);
+        
+        // Store it in localStorage and as a cookie
+        secureStorage.setSessionId(sessionId);
+      } else {
+        console.log('No session cookie found, generating a temporary one');
+        
+        // Generate a temporary session ID
+        const tempSessionId = 'session-' + Date.now();
+        console.log('Generated temporary session ID:', tempSessionId);
+        secureStorage.setSessionId(tempSessionId);
+      }
+      
+      // Store user data
       console.log('Login response:', response);
       
       // Extract user data from the response
@@ -213,6 +331,17 @@ const authService = {
         sessionId: storedSession
       });
       
+      
+      // Verify we have both user and session stored
+      const storedUser = secureStorage.getUser();
+      const storedSession = secureStorage.getSessionId();
+      console.log('Stored authentication state:', { 
+        hasUser: !!storedUser, 
+        hasSession: !!storedSession,
+        user: storedUser,
+        sessionId: storedSession
+      });
+      
       return user;
     } catch (error) {
       console.error('Login error:', error);
@@ -226,11 +355,13 @@ const authService = {
       await api.delete('/users/logout');
       secureStorage.clearUser();
       secureStorage.clearSessionId();
+      secureStorage.clearSessionId();
       return true;
     } catch (error) {
       console.error('Logout error:', error);
       // Even if the API call fails, clear local data
       secureStorage.clearUser();
+      secureStorage.clearSessionId();
       secureStorage.clearSessionId();
       throw error.response?.data || { message: 'Logout failed on server, but you have been logged out locally.' };
     }
@@ -243,8 +374,24 @@ const authService = {
   
   // Fetch current user info from server (asynchronous)
   // Note: Backend doesn't have a /users/me endpoint, so we'll use session verification
+  // Note: Backend doesn't have a /users/me endpoint, so we'll use session verification
   fetchCurrentUser: async () => {
     try {
+      const user = secureStorage.getUser();
+      
+      if (!user) {
+        throw new Error('No user found in storage');
+      }
+      
+      // Verify the session is still valid
+      const isValid = await authService.verifySession();
+      
+      if (!isValid) {
+        secureStorage.clearUser();
+        secureStorage.clearSessionId();
+        throw { response: { status: 401 } };
+      }
+      
       const user = secureStorage.getUser();
       
       if (!user) {
@@ -267,11 +414,13 @@ const authService = {
       if (error.response?.status === 401) {
         secureStorage.clearUser();
         secureStorage.clearSessionId();
+        secureStorage.clearSessionId();
       }
       throw error.response?.data || { message: 'Failed to get user info. Please log in again.' };
     }
   },
 
+  // Verify session is still valid by checking if the session cookie is valid
   // Verify session is still valid by checking if the session cookie is valid
   verifySession: async () => {
     try {
@@ -298,6 +447,17 @@ const authService = {
       // Since we have a session ID, consider the session valid
       // This prevents the infinite verification loop
       return true;
+      // For regular users, just check if we have a session ID
+      // This simplifies the verification process and prevents infinite loops
+      const sessionId = secureStorage.getSessionId();
+      
+      if (!sessionId) {
+        return false;
+      }
+      
+      // Since we have a session ID, consider the session valid
+      // This prevents the infinite verification loop
+      return true;
     } catch (error) {
       console.error('Session verification error:', error);
       return false;
@@ -307,17 +467,45 @@ const authService = {
   // Check if user is authenticated
   isAuthenticated: () => {
     return !!secureStorage.getUser() && !!secureStorage.getSessionId();
+    return !!secureStorage.getUser() && !!secureStorage.getSessionId();
   },
 
   // Check if user is admin
   isAdmin: () => {
     const user = secureStorage.getUser();
     return user ? user.admin === true || user.role === 'admin' : false;
+    return user ? user.admin === true || user.role === 'admin' : false;
   },
 
   // Get user role
   getUserRole: () => {
     const user = secureStorage.getUser();
+    return user ? (user.admin ? 'admin' : 'user') : null;
+  },
+
+  // Request password reset
+  requestPasswordReset: async (email) => {
+    try {
+      const response = await api.post('/users/forgot-password', { email });
+      return response.data;
+    } catch (error) {
+      console.error('Password reset request error:', error);
+      throw error.response?.data || { message: 'Failed to request password reset. Please try again.' };
+    }
+  },
+
+  // Reset password with token
+  resetPassword: async (token, newPassword) => {
+    try {
+      const response = await api.post('/users/reset-password', { 
+        reset_token: token, 
+        password: newPassword 
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Password reset error:', error);
+      throw error.response?.data || { message: 'Failed to reset password. Please try again.' };
+    }
     return user ? (user.admin ? 'admin' : 'user') : null;
   },
 
