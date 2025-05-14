@@ -19,15 +19,17 @@ class UserController:
         self.__session = None
         self.account_controller = AccountController()
 
-    def add_user(self, username: str, email: str, password: str, admin: bool = False) -> User:
+    def add_user(self, username: str, email: str, password: str, admin: bool = False, 
+                fullname: str = None, phone_number: str = None) -> User:
         """Create a new user in the given Database"""
         try:
-            # Create user
+            # Create user with all fields
             user = User(
                 username=username,
                 email=email,
                 admin=admin,
-                fullname=username,      # Empty string as default
+                fullname=fullname or username,
+                phone_number=phone_number
             )
             
             # Set password

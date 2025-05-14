@@ -108,42 +108,30 @@ const Register = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    // Clear any previous errors
-    setRegistrationError('');
+    if (!validateForm()) return;
 
-    if (validateForm()) {
-      try {
-        // Create FormData object for file upload
-        const formDataToSend = new FormData();
-        // Add all text fields
-        formDataToSend.append('fullName', formData.fullName);
-        formDataToSend.append('username', formData.username);
-        formDataToSend.append('email', formData.email);
-        formDataToSend.append('phoneNumber', formData.phoneNumber);
-        formDataToSend.append('password', formData.password);
-        formDataToSend.append('admin', 'False'); // Always set admin to False for user registration
-        // Add ID picture file
-        if (formData.idPicture) {
-          formDataToSend.append('idPicture', formData.idPicture);
-        }
-        console.log('Sending registration data with file');
-        await register(formDataToSend, true); // true indicates multipart/form-data
-        setRegistrationSuccess(true);
-        // Redirect to login after successful registration
-        setTimeout(() => {
-          navigate('/login', { state: { registered: true } });
-        }, 2000);
-      } catch (error) {
-        console.error('Registration error:', error);
-        // Check for specific error messages
-        if (error.message && error.message.includes('already registered')) {
-          setRegistrationError('This email is already registered. Please use a different email or try logging in.');
-        } else if (error.message) {
-          setRegistrationError(error.message);
-        } else {
-          setRegistrationError('Registration failed. Please try again.');
-        }
+    try {
+      const formDataToSend = new FormData();
+      formDataToSend.append('username', formData.username);
+      formDataToSend.append('email', formData.email);
+      formDataToSend.append('password', formData.password);
+      formDataToSend.append('fullName', formData.fullName);
+      formDataToSend.append('phoneNumber', formData.phoneNumber);
+      formDataToSend.append('admin', 'False');
+      
+      // Add the ID picture to the form data with the correct key
+      if (formData.idPicture) {
+        formDataToSend.append('idPicture', formData.idPicture);
       }
+
+      const user = await register(formDataToSend, true);
+      setRegistrationSuccess(true);
+      setTimeout(() => {
+        navigate('/login', { state: { registered: true } });
+      }, 2000);
+    } catch (error) {
+      console.error('Registration error:', error);
+      setRegistrationError(error.message || 'Registration failed. Please try again.');
     }
   };
 
