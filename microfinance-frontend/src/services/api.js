@@ -3,7 +3,7 @@ import axios from 'axios';
 // Create an axios instance with default config
 const api = axios.create({
   // Use the Vite proxy which will handle CORS issues
-  baseURL: 'http://localhost:5000/api/v1', // Direct connection to backend
+  baseURL: 'http://localhost:5000/api/v1', // Direct connection to backend with /api/v1 prefix
   headers: {
     'Content-Type': 'application/json'
   },

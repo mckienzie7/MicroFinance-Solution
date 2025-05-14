@@ -6,7 +6,7 @@ from BackEnd.models import storage
 from BackEnd.models.Transaction import Transaction
 from BackEnd.models.Account import Account
 from sqlalchemy.orm.exc import NoResultFound
-from TransactionAuthController import TransactionAuthController
+from BackEnd.Controllers.TransactionAuthController import TransactionAuthController
 from datetime import datetime
 from typing import List, Tuple
 

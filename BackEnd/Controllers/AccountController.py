@@ -167,7 +167,7 @@ class AccountController:
 
         account = self.db.get(Account, account_id)
         account.balance += amount
-        transaction = Transaction(account_id=account_id, amount=amount, type="deposit")
+        transaction = Transaction(account_id=account_id, amount=amount, transaction_type="deposit")
         self.db.new(transaction)
         self.db.save()
 
