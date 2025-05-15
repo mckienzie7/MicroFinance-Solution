@@ -132,7 +132,7 @@ def transfer():
 
 @app_views.route('/transactions/account/<account_id>', methods=['GET'], strict_slashes=False)
 @swag_from('documentation/transaction/get_account_transactions.yml')
-def get_account_transactions(account_id):
+def get_account_transactions_for_account(account_id):
     """
     Retrieves all transactions for a specific account
     """

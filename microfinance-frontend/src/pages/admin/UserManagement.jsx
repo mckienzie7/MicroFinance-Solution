@@ -22,7 +22,7 @@ const UserManagement = () => {
   // Verify API endpoints are available
   const verifyApiEndpoints = async () => {
     try {
-      await api.get('/status');
+      await api.get('/users');
       return true;
     } catch (err) {
       console.error('API verification failed:', err);
@@ -40,7 +40,7 @@ const UserManagement = () => {
     setError(null);
     
     try {
-      const response = await api.post('/users', { admin: "True" });
+      const response = await api.get('/users', { admin: "True" });
       
       if (response.data && Array.isArray(response.data)) {
         const normalUsers = response.data.filter(user => user.admin !== true);
