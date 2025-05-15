@@ -25,7 +25,7 @@ def get_users():
     data = request.get_json()
     admin = data.get("admin")
     if admin == "False":
-        admin = False
+        admin = True
     elif admin == "True":
         admin = True
     if admin:

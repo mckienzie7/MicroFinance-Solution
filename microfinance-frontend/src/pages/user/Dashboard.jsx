@@ -98,6 +98,10 @@ const Dashboard = () => {
       const accountsResponse = await api.get(`/users/${customer.id}/accounts`);
       const accounts = accountsResponse.data || [];
       
+      // Find savings account
+      const savingsAccount = accounts.find(account => account.account_type === 'savings');
+      const savingsBalance = savingsAccount ? parseFloat(savingsAccount.balance || 0) : 0;
+      
       // Get loans for loan progress
       const loansResponse = await api.get(`/customers/${customer.id}/loans`);
       const loans = loansResponse.data || [];
@@ -119,8 +123,8 @@ const Dashboard = () => {
         transactions = transactionResults.flat();
       }
       
-      // 1. Calculate Balance
-      const totalBalance = accounts.reduce((sum, account) => sum + parseFloat(account.balance || 0), 0);
+      // 1. Set Balance to savings account only
+      const totalBalance = savingsBalance;
      
       
       // 2. Calculate Loan Progress
@@ -217,13 +221,13 @@ const Dashboard = () => {
 
   // Balance Card Component
   const BalanceCard = () => {
-    const { current, available, currency } = dashboardData.balance;
+    const { current, currency } = dashboardData.balance;
     
     return (
       <div className="bg-white rounded-xl shadow-lg overflow-hidden">
         <div className="p-6">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-medium text-gray-700">My Balance</h3>
+            <h3 className="text-lg font-medium text-gray-700">Savings Account Balance</h3>
             <div className="p-2 rounded-full bg-blue-50">
               <BanknotesIcon className="h-6 w-6 text-blue-600" />
             </div>
@@ -231,7 +235,7 @@ const Dashboard = () => {
           
           <div className="space-y-3">
             <div>
-              <p className="text-sm text-gray-500">Current Balance</p>
+              <p className="text-sm text-gray-500">Current Savings Balance</p>
               <p className="text-3xl font-bold text-gray-900">
                 {currency} {current.toLocaleString()}
               </p>
