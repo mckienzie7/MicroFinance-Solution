@@ -106,6 +106,8 @@ class FileStorage:
         return filtered_objs[0] if filtered_objs else None
 
 
+
+
     def count(self, cls=None):
         """
         count the number of objects in storage

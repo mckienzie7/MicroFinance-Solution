@@ -47,10 +47,37 @@ def post_loan():
 
     controller = LoanController()
     try:
-        loan = controller.apply_loan(**data)
+        # Create a new dictionary with the correct parameter names
+        loan_data = {}
+        
+        # Map the parameters correctly
+        if 'customer_id' in data:
+            loan_data['customer_id'] = data['customer_id']
+        
+        if 'amount' in data:
+            loan_data['amount'] = float(data['amount'])
+            
+        if 'interest_rate' in data:
+            loan_data['interest_rate'] = float(data['interest_rate'])
+            
+        # Map term_months to repayment_period
+        if 'term_months' in data:
+            loan_data['repayment_period'] = int(data['term_months'])
+        elif 'repayment_period' in data:
+            loan_data['repayment_period'] = int(data['repayment_period'])
+            
+        if 'purpose' in data:
+            loan_data['purpose'] = data['purpose']
+            
+        # Apply the loan with the correctly mapped parameters
+        loan = controller.apply_loan(**loan_data)
         return make_response(jsonify(loan.to_dict()), 201)
     except ValueError as e:
         return make_response(jsonify({"error": str(e)}), 400)
+    except Exception as e:
+        # Log the error for debugging
+        print(f"Error in post_loan: {str(e)}")
+        return make_response(jsonify({"error": "Internal server error"}), 500)
 
 @app_views.route('/loans/<loan_id>', methods=['PUT'], strict_slashes=False)
 @swag_from('documentation/loan/put_loan.yml')

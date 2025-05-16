@@ -6,8 +6,9 @@ Contains the MongoStorage class for NoSQL storage using MongoDB
 from pymongo import MongoClient
 from os import getenv
 from BackEnd.models.user import User
+from BackEnd.models.Account import Account
 
-classes = {"User": User}
+classes = {"User": User, "Account": Account}
 
 
 class MongoStorage:
