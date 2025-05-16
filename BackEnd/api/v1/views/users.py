@@ -22,12 +22,9 @@ def get_users():
     or a specific user
     -- This can be access only by Admin
     """
-    data = request.get_json()
-    admin = data.get("admin")
-    if admin == "False":
-        admin = True
-    elif admin == "True":
-        admin = True
+    # For GET requests, use request.args instead of get_json()
+    admin = request.args.get("admin")
+    # Any value of admin parameter means it's an admin request
     if admin:
         all_users = storage.all(User).values()
         list_users = []
@@ -42,12 +39,9 @@ def get_users():
 @swag_from('documentation/user/get_user.yml', methods=['GET'])
 def get_user(user_id):
     """ Retrieves an user """
-    data = request.get_json()
-    admin = data.get("admin")
-    if admin == "False":
-        admin = False
-    elif admin == "True":
-        admin = True
+    # For GET requests, use request.args instead of get_json()
+    admin = request.args.get("admin")
+    # Any value of admin parameter means it's an admin request
     if admin:
         user = storage.get(User, user_id)
         if not user:
