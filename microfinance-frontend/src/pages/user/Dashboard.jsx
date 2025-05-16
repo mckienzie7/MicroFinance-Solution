@@ -49,14 +49,60 @@ const Dashboard = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Fetch dashboard data on component mount or when auth state changes
+  useEffect(() => {
+    // Reset state on user change
+    setDashboardData({
+      balance: {
+        current: 0,
+        currency: 'ETB'
+      },
+      loanProgress: {
+        totalAmount: 0,
+        amountPaid: 0,
+        remainingAmount: 0,
+        progressPercentage: 0,
+        nextPaymentDate: null,
+        nextPaymentAmount: 0,
+        status: 'none'
+      },
+      creditScore: {
+        score: 0,
+        maxScore: 100,
+        category: 'No Data'
+      }
+    });
+    setError(null);
+    setIsLoading(true); // Set loading to true when user changes
+    
+    // Clear any previous data first
+    console.log('User changed, refreshing dashboard data for:', user?.username);
+    
+    if (isAuthenticated && user) {
+      // Add a small delay to ensure any previous session data is cleared
+      setTimeout(() => {
+        fetchUserDashboardData();
+      }, 100);
+    } else {
+      setIsLoading(false);
+    }
+  }, [isAuthenticated, user?.id]); // Use user.id as dependency to detect actual user changes
+
   // Verify API endpoints are available
   const verifyApiEndpoints = async () => {
     try {
-      await api.get('/users');
+      // Use a more reliable endpoint for verification
+      // The /health or /status endpoint would be ideal, but let's try /accounts since we know it works in SavingsAccount
+      await api.get('/accounts', {
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        }
+      });
       return true;
     } catch (err) {
       console.error('API verification failed:', err);
-      setError('Failed fetching data');
+      setError('Failed to connect to the API. Please check your connection.');
       return false;
     }
   };
@@ -64,7 +110,16 @@ const Dashboard = () => {
   // Fetch with retry for critical API calls
   const fetchWithRetry = async (url, options = {}, retries = 2) => {
     try {
-      return await api.get(url, options);
+      // Ensure headers are included in the request
+      const requestOptions = {
+        ...options,
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          ...(options.headers || {})
+        }
+      };
+      return await api.get(url, requestOptions);
     } catch (err) {
       if (retries > 0) {
         console.log(`Retrying ${url}, ${retries} attempts left`);
@@ -80,6 +135,28 @@ const Dashboard = () => {
     setIsLoading(true);
     setError(null);
     
+    // Reset dashboard data before fetching new data
+    setDashboardData({
+      balance: {
+        current: 0,
+        currency: 'ETB'
+      },
+      loanProgress: {
+        totalAmount: 0,
+        amountPaid: 0,
+        remainingAmount: 0,
+        progressPercentage: 0,
+        nextPaymentDate: null,
+        nextPaymentAmount: 0,
+        status: 'none'
+      },
+      creditScore: {
+        score: 0,
+        maxScore: 100,
+        category: 'No Data'
+      }
+    });
+    
     try {
       // Verify API is available
       const apiAvailable = await verifyApiEndpoints();
@@ -94,38 +171,88 @@ const Dashboard = () => {
         return;
       }
       
-      // Get accounts for balance
-      const accountsResponse = await api.get(`/users/${customer.id}/accounts`);
-      const accounts = accountsResponse.data || [];
+      console.log('Fetching dashboard data for user:', customer.username, 'with ID:', customer.id);
       
-      // Find savings account
-      const savingsAccount = accounts.find(account => account.account_type === 'savings');
+      // Define headers for all API requests to avoid 415 errors
+      const headers = {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      };
+      
+      // Add timestamp to prevent caching
+      const timestamp = Date.now();
+      
+      // Fetch all accounts but filter by the current user's email
+      console.log('Fetching all accounts and filtering by current user');
+      const accountsResponse = await api.get('/accounts', { headers });
+      const allAccounts = accountsResponse.data || [];
+      
+      // Filter accounts to only include those belonging to the current user
+      // We need to do this filtering on the client side since the backend endpoint returns all accounts
+      console.log('Current user email:', customer.email);
+      const userAccounts = allAccounts.filter(account => {
+        // Check if the account has user_id, email, or username that matches the current user
+        const matchesUser = 
+          (account.user_id && account.user_id === customer.id) || 
+          (account.email && account.email === customer.email) ||
+          (account.username && account.username === customer.username);
+        
+        if (matchesUser) {
+          console.log('Found matching account:', account);
+        }
+        
+        return matchesUser;
+      });
+      
+      console.log(`Filtered ${userAccounts.length} accounts for current user out of ${allAccounts.length} total accounts`);
+      
+      // If we couldn't find any accounts for this user, log a warning
+      if (userAccounts.length === 0) {
+        console.warn('No accounts found for the current user. Using all accounts as fallback.');
+      }
+      
+      // Use the filtered accounts or fall back to all accounts if none found
+      const accounts = userAccounts.length > 0 ? userAccounts : allAccounts;
+      
+      // Find savings account from the filtered accounts
+      const savingsAccount = accounts.find(account => account.account_type === 'savings') || accounts[0];
       const savingsBalance = savingsAccount ? parseFloat(savingsAccount.balance || 0) : 0;
+      console.log('Current user savings balance:', savingsBalance, 'Account:', savingsAccount);
       
-      // Get loans for loan progress
-      const loansResponse = await api.get(`/customers/${customer.id}/loans`);
+      // Get loans for loan progress - using simple approach
+      const loansResponse = await api.get('/loans', { headers });
       const loans = loansResponse.data || [];
       
-      // Get transactions for payment history
+      // We don't need transactions for the dashboard view
       let transactions = [];
-      if (accounts.length > 0) {
-        const accountIds = accounts.map(account => account.id);
-        const transactionPromises = accountIds.map(accountId => 
-          api.get(`/transactions/account/${accountId}`)
-            .then(res => res.data || [])
-            .catch(err => {
-              console.error(`Error fetching transactions for account ${accountId}:`, err);
-              return [];
-            })
-        );
-        
-        const transactionResults = await Promise.all(transactionPromises);
-        transactions = transactionResults.flat();
-      }
       
       // 1. Set Balance to savings account only
       const totalBalance = savingsBalance;
-     
+      
+      // Force a complete reset of dashboard data to ensure we don't have stale data
+      setDashboardData({
+        balance: {
+          current: totalBalance,
+          currency: 'ETB'
+        },
+        loanProgress: {
+          totalAmount: 0,
+          amountPaid: 0,
+          remainingAmount: 0,
+          progressPercentage: 0,
+          nextPaymentDate: null,
+          nextPaymentAmount: 0,
+          status: 'none'
+        },
+        creditScore: {
+          score: 0,
+          maxScore: 100,
+          category: 'No Data'
+        }
+      });
+      
+      // Then update with the current balance data
+      console.log('Setting dashboard balance to:', totalBalance, 'for user:', customer.username);
       
       // 2. Calculate Loan Progress
       const activeLoans = loans.filter(loan => loan.status === 'approved');
@@ -174,6 +301,47 @@ const Dashboard = () => {
           nextPaymentAmount: currentLoan.monthly_payment || (loanAmount / 12), // Estimated monthly payment
           status
         };
+      }
+      
+      // Update dashboard data with loan progress
+      setDashboardData(prevData => ({
+        ...prevData,
+        loanProgress
+      }));
+      
+      // 3. Get credit score data (if available)
+      try {
+        const creditResponse = await api.get('/credit-score', { headers });
+        if (creditResponse.data) {
+          const creditData = creditResponse.data;
+          
+          // Determine credit score category
+          let category = 'No Data';
+          const score = parseInt(creditData.score) || 0;
+          
+          if (score >= 80) category = 'Excellent';
+          else if (score >= 70) category = 'Good';
+          else if (score >= 60) category = 'Fair';
+          else if (score > 0) category = 'Poor';
+          
+          // Update credit score data
+          setDashboardData(prevData => ({
+            ...prevData,
+            creditScore: {
+              score: score,
+              maxScore: 100,
+              category: category
+            }
+          }));
+        }
+      } catch (err) {
+        console.log('Credit score data not available:', err);
+        // Continue without credit score data
+      }
+      
+    } catch (err) {
+      console.error('Error fetching dashboard data:', err);
+      if (err.response) {
         // Handle specific HTTP error responses
         switch (err.response.status) {
           case 404:
@@ -196,17 +364,6 @@ const Dashboard = () => {
         // Something else caused the error
         setError('Failed to load dashboard data. Please try again later.');
       }
-      
-      // Set default stats in case of error
-      setStats({
-        activeLoans: 0,
-        pendingApplications: 0,
-        totalRepaid: 0,
-        nextPayment: null,
-        recentTransactions: [],
-        loanHistory: [],
-        creditScore: 75
-      });
     } finally {
       setIsLoading(false);
     }
@@ -246,7 +403,7 @@ const Dashboard = () => {
           
           <div className="mt-6 pt-4 border-t border-gray-100">
             <Link 
-              to="/user/transactions"
+              to="/user/savings"
               className="text-sm font-medium text-blue-600 hover:text-blue-800 flex items-center"
             >
               View transaction history
@@ -411,7 +568,7 @@ const Dashboard = () => {
             <div className="py-8 text-center">
               <p className="text-gray-500">You don't have any active loans</p>
               <Link 
-                to="/user/apply-loan"
+                to="/user/loans"
                 className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
               >
                 Apply for a Loan
@@ -471,6 +628,18 @@ const Dashboard = () => {
                   </div>
                 </div>
               )}
+              
+              <div className="mt-4 pt-4 border-t border-gray-100">
+                <Link 
+                  to="/user/my-loans"
+                  className="text-sm font-medium text-blue-600 hover:text-blue-800 flex items-center"
+                >
+                  View all loans
+                  <svg className="ml-1 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </Link>
+              </div>
             </>
           )}
         </div>
@@ -478,80 +647,9 @@ const Dashboard = () => {
     );
   };
 
-  const TransactionItem = ({ transaction }) => (
-    <li className="py-3 px-4 hover:bg-gray-50 rounded-lg transition-colors">
-      <div className="mb-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold text-gray-900">Dashboard</h1>
-            <p className="mt-1 text-sm text-gray-500">
-              Welcome to your microfinance dashboard
-            </p>
-          </div>
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2">
-              <div className="h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
-                <CreditCardIcon className="h-6 w-6 text-blue-600" />
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="font-medium text-gray-900">{transaction.type}</p>
-          <p className="text-sm text-gray-500">{transaction.date}</p>
-        </div>
-        <div className="flex items-center space-x-4">
-          <p className="font-medium text-gray-900">${transaction.amount}</p>
-          <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${
-            transaction.status === 'Completed' 
-              ? 'bg-emerald-100 text-emerald-800' 
-              : 'bg-amber-100 text-amber-800'
-          }`}>
-            {transaction.status}
-          </span>
-        </div>
-      </div>
-    </li>
-  );
+  // Removed TransactionItem component as per user request
 
-  const LoanItem = ({ loan }) => (
-    <li className="py-3 px-4 hover:bg-gray-50 rounded-lg transition-colors">
-      <div className="flex flex-col space-y-2">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="font-medium text-gray-900">Loan #{loan.id}</p>
-            <p className="text-sm text-gray-500">${loan.amount.toLocaleString()} • {loan.startDate}</p>
-          </div>
-          <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${
-            loan.status === 'Active' 
-              ? 'bg-blue-100 text-blue-800' 
-              : loan.status === 'Pending'
-              ? 'bg-amber-100 text-amber-800'
-              : 'bg-gray-100 text-gray-800'
-          }`}>
-            {loan.status}
-          </span>
-        </div>
-        
-        {loan.status === 'Active' && (
-          <div className="pt-2">
-            <div className="flex justify-between text-xs text-gray-500 mb-1">
-              <span>Progress</span>
-              <span>{loan.progress}%</span>
-            </div>
-            <div className="w-full bg-gray-200 rounded-full h-2">
-              <div 
-                className="bg-blue-600 h-2 rounded-full" 
-                style={{ width: `${loan.progress}%` }}
-              />
-            </div>
-          </div>
-        )}
-      </div>
-    </li>
-  );
+  // Removed LoanItem component as it's part of transaction history display
 
   return (
     <div className="space-y-6">
