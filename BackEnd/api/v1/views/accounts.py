@@ -9,18 +9,57 @@ from BackEnd.models.Account import Account
 from BackEnd.models import storage
 from BackEnd.api.v1.views import app_views
 from BackEnd.Controllers.AccountController import AccountController
+from BackEnd.Controllers.AuthController import AuthController
 
 @app_views.route('/accounts', methods=['GET'], strict_slashes=False)
 @swag_from('documentation/account/all_accounts.yml')
 def get_accounts():
     """
     Retrieves the list of all account objects
+    -- This can be accessed only by Admin
     """
+    # Check for admin role in session
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return jsonify({"message": "No authorization token provided"}), 401
+    
+    token = auth_header.split(' ')[1]
+    auth_controller = AuthController()
+    user = auth_controller.get_user_from_session_id(token)
+    
+    if not user or not user.admin:
+        return jsonify({"message": "Unauthorized. Admin access required"}), 403
+    
     all_accounts = storage.all(Account).values()
     list_accounts = []
     for account in all_accounts:
         list_accounts.append(account.to_dict())
     return jsonify(list_accounts)
+
+@app_views.route('/accounts/me', methods=['GET'], strict_slashes=False)
+@swag_from('documentation/account/get_user_accounts.yml')
+def get_user_accounts():
+    """
+    Retrieves the list of accounts for the authenticated user
+    """
+    # Check for authentication
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return jsonify({"message": "No authorization token provided"}), 401
+    
+    token = auth_header.split(' ')[1]
+    auth_controller = AuthController()
+    user = auth_controller.get_user_from_session_id(token)
+    
+    if not user:
+        return jsonify({"message": "Unauthorized"}), 401
+    
+    # Get accounts for the authenticated user using SQLAlchemy query
+    user_accounts = storage.session().query(Account).filter(Account.user_id == user.id).all()
+    if not user_accounts:
+        return jsonify([])
+    
+    return jsonify([account.to_dict() for account in user_accounts])
 
 @app_views.route('/accounts/<account_id>', methods=['GET'], strict_slashes=False)
 @swag_from('documentation/account/get_account.yml')
