@@ -160,5 +160,5 @@ def get_account_transactions(account_id):
 
     transaction = TransactionController()
     controller = AccountController()
-    transactions = transaction.get_transactions_by_account(account)
+    transactions = transaction.get_transactions_by_account(account_id)
     return jsonify([transaction.to_dict() for transaction in transactions]) 

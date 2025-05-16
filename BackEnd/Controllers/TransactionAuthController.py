@@ -18,9 +18,16 @@ class TransactionAuthController:
         """Initialize TransactionAuthController"""
         self.db = storage
 
-    def validate_active_account(self, account_id: int) -> bool:
+    def validate_active_account(self, account_id: str) -> bool:
         """Check if an account is active for performing transactions"""
-        account = self.db.get(Account, account_id)
+        try:
+            account = self.db.get(Account, account_id)
+            if not account:
+                raise NoResultFound("Account not found")
+            return account.status == "active"
+        except Exception as e:
+            print(f"Error validating account: {str(e)}")
+            raise
         if not account:
             raise NoResultFound("Account not found")
         return account.status == "active"

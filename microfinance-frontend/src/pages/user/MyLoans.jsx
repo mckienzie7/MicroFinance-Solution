@@ -1,15 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import api from '../../services/api';
 import { 
   ArrowPathIcon, 
-  CheckCircleIcon, 
-  ExclamationCircleIcon,
   DocumentTextIcon,
   CurrencyDollarIcon,
-  CalendarIcon,
-  ClockIcon
+  CalendarIcon
 } from '@heroicons/react/24/outline';
+import api from '../../services/api';
 
 const MyLoans = () => {
   const { user, isAuthenticated } = useAuth();
@@ -34,6 +31,17 @@ const MyLoans = () => {
   
   // Fetch loans on component mount
   useEffect(() => {
+    // Reset state on user change
+    setLoans([]);
+    setLoanForm({
+      amount: '',
+      term_months: '12',
+      interest_rate: '5.0',
+      purpose: ''
+    });
+    setError(null);
+    setSuccessMessage('');
+    
     if (isAuthenticated && user) {
       fetchLoans();
     }
@@ -45,26 +53,65 @@ const MyLoans = () => {
     setError(null);
     
     try {
+      // Verify API is available
+      try {
+        await api.get('/loans');
+      } catch (err) {
+        console.error('API verification failed:', err);
+        setError('Failed fetching loans endpoint.');
+        setIsLoading(false);
+        return;
+      }
+      
       // No /customers endpoint, use user object directly as customer
       const customer = user;
       if (!customer) {
         setError('User profile not found. Please update your profile first.');
+        setIsLoading(false);
         return;
       }
       
-      // Fetch all loans
+      // Get all loans from the API
       const loansResponse = await api.get('/loans');
-      
+      const allLoans = loansResponse.data;
+
+      console.log('Loans fetched successfully:', allLoans);
+
       // Filter loans for the current customer
-      const customerLoans = loansResponse.data.filter(loan => loan.customer_id === customer.id);
-      
+      // The backend might not filter by customer_id, so we do it here
+      const customerLoans = allLoans.filter(loan => loan.customer_id === customer.id);
+
       // Sort by date (newest first)
       customerLoans.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-      
+
       setLoans(customerLoans);
     } catch (err) {
       console.error('Error fetching loans:', err);
-      setError('Failed to load loans. Please try again later.');
+      if (err.response) {
+        // Handle specific HTTP error responses
+        switch (err.response.status) {
+          case 404:
+            setError('API endpoint not found. Please ensure the backend server is properly configured.');
+            break;
+          case 401:
+          case 403:
+            setError('Authentication error. Please log in again.');
+            break;
+          case 500:
+            setError('Server error. Please try again later.');
+            break;
+          default:
+            setError(`Failed to load loans: ${err.response.data?.error || 'Unknown error'}`);
+        }
+      } else if (err.request) {
+        // The request was made but no response was received
+        console.error('No response received:', err.request);
+        setError('Server not responding. Please try again later.');
+      } else {
+        // Something happened in setting up the request that triggered an Error
+        console.error('Request setup error:', err.message);
+        setError('Network error. Please check your connection.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -81,43 +128,49 @@ const MyLoans = () => {
     }
   };
   
-  // Validate the loan application form
+  // Validate form fields
   const validateForm = () => {
     const errors = {};
-    
-    if (!loanForm.amount || isNaN(loanForm.amount) || parseFloat(loanForm.amount) < 100) {
-      errors.amount = 'Please enter a valid loan amount (minimum $100)';
+    let isValid = true;
+
+    if (!loanForm.amount || parseFloat(loanForm.amount) <= 0) {
+      errors.amount = 'Please enter a valid loan amount.';
+      isValid = false;
     }
-    
-    if (!loanForm.term_months) {
-      errors.term_months = 'Please select a loan term';
+
+    if (!loanForm.term_months || parseInt(loanForm.term_months) <= 0) {
+      errors.term_months = 'Please select a valid loan term.';
+      isValid = false;
     }
-    
-    if (!loanForm.purpose.trim()) {
-      errors.purpose = 'Please provide a purpose for the loan';
-    } else if (loanForm.purpose.trim().length < 10) {
-      errors.purpose = 'Please provide a more detailed purpose (at least 10 characters)';
+
+    if (!loanForm.interest_rate || parseFloat(loanForm.interest_rate) <= 0) {
+      errors.interest_rate = 'Please select a valid interest rate.';
+      isValid = false;
     }
-    
+
+    if (!loanForm.purpose || loanForm.purpose.trim().length < 10) {
+      errors.purpose = 'Please provide a detailed purpose for the loan (minimum 10 characters).';
+      isValid = false;
+    }
+
     setFormErrors(errors);
-    return Object.keys(errors).length === 0;
+    return isValid;
   };
-  
-  // Calculate monthly payment for the loan
+
+  // Calculate monthly payment
   const calculateMonthlyPayment = () => {
-    const principal = parseFloat(loanForm.amount) || 0;
-    const interestRate = parseFloat(loanForm.interest_rate) / 100 / 12; // Monthly interest rate
-    const termMonths = parseInt(loanForm.term_months) || 1;
-    
-    if (principal <= 0 || termMonths <= 0) return '0.00';
-    
-    // Monthly payment formula: P * r * (1 + r)^n / ((1 + r)^n - 1)
-    const payment = principal * interestRate * Math.pow(1 + interestRate, termMonths) / 
-                   (Math.pow(1 + interestRate, termMonths) - 1);
-    
-    return payment.toFixed(2);
+    if (!loanForm.amount || !loanForm.interest_rate || !loanForm.term_months) {
+      return 0;
+    }
+
+    const principal = parseFloat(loanForm.amount);
+    const rate = parseFloat(loanForm.interest_rate) / 100 / 12;
+    const months = parseInt(loanForm.term_months);
+
+    return (principal * rate * Math.pow(1 + rate, months)) / 
+           (Math.pow(1 + rate, months) - 1);
   };
-  
+
   // Submit loan application
   const handleSubmitLoan = async (e) => {
     e.preventDefault();
@@ -126,34 +179,51 @@ const MyLoans = () => {
       return;
     }
     
+    // No /customers endpoint, use user object directly as customer
+    const customer = user;
+    if (!customer) {
+      setError('User profile not found. Please update your profile first.');
+      return;
+    }
+    
+    // Debug log to see user object structure
+    console.log('User object for loan application:', user);
+    
     setIsLoading(true);
     setError(null);
     setSuccessMessage('');
     
     try {
-      // No /customers endpoint, use user object directly as customer
-      const customer = user;
-      if (!customer) {
-        setError('User profile not found. Please update your profile first.');
+      // Format the loan application data according to backend requirements
+      // Make sure field names match exactly what the backend expects
+      
+      // Use the authenticated user's ID for the loan application
+      const customerId = user?.id;
+      
+      console.log('Customer ID for loan application:', customerId);
+      
+      if (!customerId) {
+        setError('User ID not found. Please log out and log back in.');
+        setIsLoading(false);
         return;
       }
       
-      // Format the loan application data according to backend requirements
       const loanData = {
-        customer_id: customer.id,
+        customer_id: customerId, // Use the actual user ID
         amount: parseFloat(loanForm.amount),
+        // The API endpoint expects term_months
         term_months: parseInt(loanForm.term_months),
         interest_rate: parseFloat(loanForm.interest_rate),
         purpose: loanForm.purpose
-        // Note: Status is handled by the backend and defaults to 'pending'
       };
       
-      // Submit the loan application to the backend API
+      console.log('Using customer_id from user profile:', customerId);
+      console.log('Submitting loan application:', loanData);
+      
+      // Send loan application to the backend API
       const response = await api.post('/loans', loanData);
       
-      // Add the new loan to the list
-      const newLoan = response.data;
-      setLoans(prev => [newLoan, ...prev]);
+      console.log('Loan application submitted successfully:', response.data);
       
       // Reset form and show success message
       setLoanForm({
@@ -163,21 +233,35 @@ const MyLoans = () => {
         purpose: ''
       });
       
-      setSuccessMessage('Loan application submitted successfully! We will review your application shortly.');
+      setSuccessMessage('Loan application submitted successfully! Your application is now pending approval.');
       
-      // Refresh loans to ensure we have the latest data
+      // Refresh loans to get the latest data including the new application
       fetchLoans();
     } catch (err) {
       console.error('Error submitting loan application:', err);
-      if (err.response?.data?.error) {
-        setError(`Failed to submit loan application: ${err.response.data.error}`);
+      if (err.response) {
+        // Handle different error responses from the API
+        if (err.response.status === 400) {
+          setError(err.response.data?.error || 'Invalid loan application data. Please check all fields.');
+        } else if (err.response.status === 401) {
+          setError('Authentication error. Please log in again.');
+        } else {
+          setError(err.response.data?.error || 'Failed to submit loan application. Please try again.');
+        }
+      } else if (err.request) {
+        // The request was made but no response was received
+        console.error('No response received:', err.request);
+        setError('Server not responding. Please try again later.');
       } else {
-        setError('Failed to submit loan application. Please try again later.');
+        // Something happened in setting up the request that triggered an Error
+        console.error('Request setup error:', err.message);
+        setError('Network error. Please check your connection.');
       }
     } finally {
       setIsLoading(false);
     }
   };
+
   
   // Format date for display
   const formatDate = (dateString) => {
@@ -186,23 +270,33 @@ const MyLoans = () => {
     const options = { year: 'numeric', month: 'short', day: 'numeric' };
     return new Date(dateString).toLocaleDateString(undefined, options);
   };
-  
-  // Get status badge color based on loan status
+
+  // Format amount with currency
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD'
+    }).format(amount);
+  };
+
+  // Get loan status color
   const getStatusBadgeColor = (status) => {
     switch (status?.toLowerCase()) {
       case 'approved':
         return 'bg-green-100 text-green-800';
-      case 'pending':
-        return 'bg-yellow-100 text-yellow-800';
+      case 'active':
+        return 'bg-blue-100 text-blue-800';
+      case 'paid':
+        return 'bg-purple-100 text-purple-800';
       case 'rejected':
         return 'bg-red-100 text-red-800';
-      case 'completed':
-        return 'bg-blue-100 text-blue-800';
+      case 'pending':
+        return 'bg-yellow-100 text-yellow-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
   };
-  
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
       <div className="flex justify-between items-center">
@@ -225,7 +319,7 @@ const MyLoans = () => {
       
       {successMessage && (
         <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg flex items-start">
-          <CheckCircleIcon className="h-5 w-5 mr-2 mt-0.5" />
+          <CurrencyDollarIcon className="h-5 w-5 mr-2 mt-0.5" />
           <p>{successMessage}</p>
         </div>
       )}
@@ -239,7 +333,7 @@ const MyLoans = () => {
           <form onSubmit={handleSubmitLoan} className="p-6 space-y-4">
             <div>
               <label htmlFor="amount" className="block text-sm font-medium text-gray-700 mb-1">
-                Loan Amount ($)
+                Loan Amount ({formatCurrency(loanForm.amount)})
               </label>
               <input
                 type="number"
@@ -371,15 +465,18 @@ const MyLoans = () => {
                         {formatDate(loan.created_at)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        ${parseFloat(loan.amount).toFixed(2)}
+                        {formatCurrency(loan.amount)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {loan.term_months} months
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        <span className={`px-2 py-1 text-xs rounded-full ${getStatusBadgeColor(loan.status)}`}>
-                          {loan.status || 'pending'}
-                        </span>
+                        <div className="flex items-center space-x-2">
+                          <span className={`px-2 py-1 text-xs rounded-full ${getStatusBadgeColor(loan.loan_status)}`}>
+                            {loan.loan_status || 'pending'}
+                          </span>
+                          <span className="text-gray-500 text-sm">{formatDate(loan.created_at)}</span>
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         <button 
@@ -429,8 +526,9 @@ const MyLoans = () => {
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-gray-600">Amount:</span>
-                <span className="font-medium">${parseFloat(selectedLoan.amount).toFixed(2)}</span>
+                <span className="font-medium">{formatCurrency(selectedLoan.amount)}</span>
               </div>
+
               <div className="flex justify-between items-center">
                 <span className="text-gray-600">Interest Rate:</span>
                 <span className="font-medium">{selectedLoan.interest_rate}%</span>
@@ -441,7 +539,10 @@ const MyLoans = () => {
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-gray-600">Monthly Payment:</span>
-                <span className="font-medium">${selectedLoan.monthly_payment || calculateMonthlyPayment()}</span>
+                <span className="font-medium">{formatCurrency(selectedLoan.monthly_payment || 
+                  ((selectedLoan.amount * (selectedLoan.interest_rate / 100 / 12) * 
+                    Math.pow(1 + (selectedLoan.interest_rate / 100 / 12), selectedLoan.term_months)) / 
+                   (Math.pow(1 + (selectedLoan.interest_rate / 100 / 12), selectedLoan.term_months) - 1)))}</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-gray-600">Application Date:</span>
@@ -449,12 +550,12 @@ const MyLoans = () => {
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-gray-600">Due Date:</span>
-                <span className="font-medium">{formatDate(selectedLoan.due_date)}</span>
+                <span className="font-medium">{formatDate(selectedLoan.end_date)}</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-gray-600">Status:</span>
-                <span className={`px-2 py-1 text-xs rounded-full ${getStatusBadgeColor(selectedLoan.status)}`}>
-                  {selectedLoan.status || 'pending'}
+                <span className={`px-2 py-1 text-xs rounded-full ${getStatusBadgeColor(selectedLoan.loan_status)}`}>
+                  {selectedLoan.loan_status || 'pending'}
                 </span>
               </div>
               <div>

@@ -2,12 +2,13 @@ import axios from 'axios';
 
 // Create an axios instance with default config
 const api = axios.create({
-  // Use the Vite proxy which will handle CORS issues
-  baseURL: 'http://localhost:5000/api/v1', // Direct connection to backend with /api/v1 prefix
+  // Use relative URL to leverage Vite's proxy or environment variable for production
+  baseURL: '/api/v1', // This will be proxied by Vite in development
   headers: {
-    'Content-Type': 'application/json'
+    'Content-Type': 'application/json',
+    'Accept': 'application/json'
   },
-  withCredentials: true // Enable sending cookies for cross-domain requests
+  withCredentials: false // Disable for now to avoid CORS preflight issues
 });
 
 // Add a request interceptor to handle authentication
