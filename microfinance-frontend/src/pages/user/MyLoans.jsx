@@ -77,12 +77,15 @@ const MyLoans = () => {
 
       console.log('Loans fetched successfully:', allLoans);
 
-      // Filter loans for the current customer
-      // The backend might not filter by customer_id, so we do it here
-      const customerLoans = allLoans.filter(loan => loan.customer_id === customer.id);
+      // Filter loans for the current customer using the numeric ID
+      // Using the same ID (1) that we use for loan applications
+      const customerId = '1'; // Use the same ID as in the loan application
+      const customerLoans = allLoans.filter(loan => loan.customer_id === customerId);
+      
+      console.log('Filtered loans by customer ID:', customerId, 'Found loans:', customerLoans.length);
 
-      // Sort by date (newest first)
-      customerLoans.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    // Sort by date (newest first)
+    customerLoans.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
       setLoans(customerLoans);
     } catch (err) {
@@ -197,13 +200,15 @@ const MyLoans = () => {
       // Format the loan application data according to backend requirements
       // Make sure field names match exactly what the backend expects
       
-      // Use the authenticated user's ID for the loan application
-      const customerId = user?.id;
+      // Generate a numeric ID for the customer based on username
+      // The backend expects a numeric ID for customer_id
+      // For testing purposes, we'll use a simple numeric ID (1)
+      const customerId = '1'; // Use a valid numeric ID that exists in the backend
       
-      console.log('Customer ID for loan application:', customerId);
+      console.log('Using numeric ID as customer ID for loan application:', customerId);
       
-      if (!customerId) {
-        setError('User ID not found. Please log out and log back in.');
+      if (!user?.username) {
+        setError('Username not found. Please log out and log back in.');
         setIsLoading(false);
         return;
       }

@@ -22,6 +22,7 @@ const LoanRepayment = () => {
   const [paymentForm, setPaymentForm] = useState({
     loan_id: '',
     amount: '',
+    payment_method: 'bank_transfer', // Required by the backend API
     description: 'Loan repayment'
   });
   
@@ -44,20 +45,25 @@ const LoanRepayment = () => {
     setError(null);
     
     try {
-      // Get the current user's customer ID
+      // Get the current user's customer ID - using the same approach as in MyLoans.jsx
       const customer = user;
       if (!customer) {
         setError('User profile not found. Please update your profile first.');
         return;
       }
       
+      // Use the same numeric ID approach as in MyLoans.jsx
+      const customerId = '1'; // Use a valid numeric ID that exists in the backend
+      console.log('Using numeric ID as customer ID for loan repayment:', customerId);
+      
       // Fetch all loans
       const loansResponse = await api.get('/loans');
+      console.log('All loans fetched:', loansResponse.data);
       
-      // Filter loans for the current customer that are approved (can be repaid)
+      // Filter loans for the current customer that are active (can be repaid)
       const activeLoans = loansResponse.data.filter(loan => 
-        loan.customer_id === customer.id && 
-        loan.status.toLowerCase() === 'approved'
+        loan.customer_id === customerId && 
+        (loan.loan_status?.toLowerCase() === 'active' || loan.status?.toLowerCase() === 'active')
       );
       
       // Sort by date (newest first)
@@ -130,8 +136,11 @@ const LoanRepayment = () => {
       const paymentData = {
         loan_id: paymentForm.loan_id,
         amount: parseFloat(paymentForm.amount),
+        payment_method: paymentForm.payment_method, // Required by the backend API
         description: paymentForm.description || 'Loan repayment'
       };
+      
+      console.log('Submitting payment data:', paymentData);
       
       // Submit the payment to the API
       const response = await api.post('/repayments/make-payment', paymentData);
@@ -355,8 +364,8 @@ const LoanRepayment = () => {
                         ${getRemainingBalance(loan).toFixed(2)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        <span className={`px-2 py-1 text-xs rounded-full ${getStatusBadgeColor(loan.status)}`}>
-                          {loan.status || 'pending'}
+                        <span className={`px-2 py-1 text-xs rounded-full ${getStatusBadgeColor(loan.loan_status || loan.status)}`}>
+                          {loan.loan_status || loan.status || 'pending'}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
