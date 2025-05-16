@@ -67,11 +67,16 @@ class TransactionController:
         return transaction
 
     def get_transactions_by_account(self, account_id: str) -> List[Transaction]:
-        """Retrieve all transactions for an account"""
-        if not self.auth.validate_active_account(account_id):
-            raise NoResultFound("Account not found or inactive")
-
-        return self.db.get_all_by_account_id(Transaction, account_id)
+        """
+        Get all transactions for a specific account
+        """
+        try:
+            # Use SQLAlchemy query interface to get transactions by account_id
+            transactions = self.db.session().query(Transaction).filter(Transaction.account_id == account_id).all()
+            return transactions
+        except Exception as e:
+            print(f"Error getting transactions for account {account_id}: {str(e)}")
+            return []
 
     def get_transactions_by_date(self, start_date: str, end_date: str) -> List[Transaction]:
         """

@@ -44,7 +44,7 @@ const SavingsAccount = () => {
   // Verify API endpoints are available
   const verifyApiEndpoints = async () => {
     try {
-      await api.get('/accounts');
+      await api.get('/accounts/me');
       return true;
     } catch (err) {
       console.error('API verification failed:', err);
@@ -86,43 +86,22 @@ const SavingsAccount = () => {
         return;
       }
       
-      // Get all accounts
-      const accountsResponse = await api.get(`/accounts`, {
+      // Get user's accounts using the /accounts/me endpoint
+      const accountsResponse = await api.get('/accounts/me', {
         headers: {
           'Accept': 'application/json',
           'Content-Type': 'application/json'
         }
       });
-      const allAccounts = accountsResponse.data;
+      const userAccounts = accountsResponse.data || [];
       
-      // Filter accounts to only include those belonging to the current user
-      console.log('Current user email:', customer.email);
-      const userAccounts = allAccounts.filter(account => {
-        // Check if the account has user_id, email, or username that matches the current user
-        const matchesUser = 
-          (account.user_id && account.user_id === customer.id) || 
-          (account.email && account.email === customer.email) ||
-          (account.username && account.username === customer.username);
-        
-        if (matchesUser) {
-          console.log('Found matching account:', account);
-        }
-        
-        return matchesUser;
-      });
-      
-      console.log(`Filtered ${userAccounts.length} accounts for current user out of ${allAccounts.length} total accounts`);
-      
-      // Use the filtered accounts or fall back to all accounts if none found
-      const accounts = userAccounts.length > 0 ? userAccounts : allAccounts;
-      
-      if (!accounts || accounts.length === 0) {
+      if (!userAccounts || userAccounts.length === 0) {
         setError('No savings accounts found for your profile.');
         return;
       }
       
-      // Find savings account from the filtered accounts
-      const savingsAccount = accounts.find(a => a.account_type === 'savings') || accounts[0];
+      // Find savings account from the user's accounts
+      const savingsAccount = userAccounts.find(a => a.account_type === 'savings') || userAccounts[0];
       console.log('Using savings account:', savingsAccount);
       setAccountData(savingsAccount);
       setDepositForm(prev => ({ ...prev, account_id: savingsAccount.id }));

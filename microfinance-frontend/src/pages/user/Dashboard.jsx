@@ -91,9 +91,8 @@ const Dashboard = () => {
   // Verify API endpoints are available
   const verifyApiEndpoints = async () => {
     try {
-      // Use a more reliable endpoint for verification
-      // The /health or /status endpoint would be ideal, but let's try /accounts since we know it works in SavingsAccount
-      await api.get('/accounts', {
+      // Use the /status endpoint which is public and doesn't require authentication
+      await api.get('/status', {
         headers: {
           'Accept': 'application/json',
           'Content-Type': 'application/json'
@@ -176,46 +175,22 @@ const Dashboard = () => {
       // Define headers for all API requests to avoid 415 errors
       const headers = {
         'Accept': 'application/json',
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('session_id')}` // Add authorization token
       };
       
       // Add timestamp to prevent caching
       const timestamp = Date.now();
       
-      // Fetch all accounts but filter by the current user's email
-      console.log('Fetching all accounts and filtering by current user');
-      const accountsResponse = await api.get('/accounts', { headers });
-      const allAccounts = accountsResponse.data || [];
+      // Fetch user's accounts using the new /accounts/me endpoint
+      console.log('Fetching user accounts');
+      const accountsResponse = await api.get('/accounts/me', { headers });
+      const userAccounts = accountsResponse.data || [];
       
-      // Filter accounts to only include those belonging to the current user
-      // We need to do this filtering on the client side since the backend endpoint returns all accounts
-      console.log('Current user email:', customer.email);
-      const userAccounts = allAccounts.filter(account => {
-        // Check if the account has user_id, email, or username that matches the current user
-        const matchesUser = 
-          (account.user_id && account.user_id === customer.id) || 
-          (account.email && account.email === customer.email) ||
-          (account.username && account.username === customer.username);
-        
-        if (matchesUser) {
-          console.log('Found matching account:', account);
-        }
-        
-        return matchesUser;
-      });
-      
-      console.log(`Filtered ${userAccounts.length} accounts for current user out of ${allAccounts.length} total accounts`);
-      
-      // If we couldn't find any accounts for this user, log a warning
-      if (userAccounts.length === 0) {
-        console.warn('No accounts found for the current user. Using all accounts as fallback.');
-      }
-      
-      // Use the filtered accounts or fall back to all accounts if none found
-      const accounts = userAccounts.length > 0 ? userAccounts : allAccounts;
+      console.log('User accounts:', userAccounts);
       
       // Find savings account from the filtered accounts
-      const savingsAccount = accounts.find(account => account.account_type === 'savings') || accounts[0];
+      const savingsAccount = userAccounts.find(account => account.account_type === 'savings') || userAccounts[0];
       const savingsBalance = savingsAccount ? parseFloat(savingsAccount.balance || 0) : 0;
       console.log('Current user savings balance:', savingsBalance, 'Account:', savingsAccount);
       
