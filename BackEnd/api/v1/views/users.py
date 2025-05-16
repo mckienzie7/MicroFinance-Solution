@@ -29,7 +29,7 @@ def get_users():
     
     token = auth_header.split(' ')[1]
     auth_controller = AuthController()
-    user = auth_controller.verify_token(token)
+    user = auth_controller.get_user_from_session_id(token)
     
     if not user or not user.admin:
         return jsonify({"message": "Unauthorized. Admin access required"}), 403

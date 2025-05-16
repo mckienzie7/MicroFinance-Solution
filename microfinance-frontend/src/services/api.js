@@ -14,6 +14,14 @@ const api = axios.create({
 // Add a request interceptor to handle authentication
 api.interceptors.request.use(
   (config) => {
+    // Get the session ID from storage
+    const sessionId = localStorage.getItem('session_id');
+    
+    // If we have a session ID, add it to the Authorization header
+    if (sessionId) {
+      config.headers['Authorization'] = `Bearer ${sessionId}`;
+    }
+    
     // Log requests in development
     if (import.meta.env.DEV) {
       console.log(`API Request: ${config.method.toUpperCase()} ${config.url}`);

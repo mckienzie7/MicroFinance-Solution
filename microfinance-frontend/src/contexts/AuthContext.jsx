@@ -22,9 +22,10 @@ export const AuthProvider = ({ children }) => {
       setUser(userData);
 
       if (userData) {
-        const userRole = userData.role || 'user';
-        setRole(userRole);
-        setIsAdmin(userRole === 'admin');
+        // Set admin status directly from userData.admin
+        const isUserAdmin = userData.admin === true;
+        setRole(isUserAdmin ? 'admin' : 'user');
+        setIsAdmin(isUserAdmin);
         setIsAuthenticated(true);
       } else {
         setRole(null);

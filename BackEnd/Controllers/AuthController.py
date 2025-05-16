@@ -130,3 +130,9 @@ class AuthController:
             raise ValueError("Invalid reset token")
         new_password_hash = _hash_password(password)
         self._userC.update_user(user.id, password=new_password_hash, reset_token=None)
+
+    def verify_token(self, token: str) -> Union[User, None]:
+        """Verify a session token and return the associated user."""
+        if not token:
+            return None
+        return self.get_user_from_session_id(token)
