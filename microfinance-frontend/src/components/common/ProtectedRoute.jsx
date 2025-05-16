@@ -8,7 +8,7 @@ const LoadingSpinner = () => (
   </div>
 );
 
-const ProtectedRoute = ({ allowedRoles = ['user'] }) => {
+const ProtectedRoute = ({ allowedRoles = ['user', 'admin'] }) => {
   const { 
     isAuthenticated, 
     user, 
@@ -39,7 +39,6 @@ const ProtectedRoute = ({ allowedRoles = ['user'] }) => {
       return;
     }
 
-    // Skip verification if already authenticated
     if (isAuthenticated) {
       setIsChecking(false);
       return;
@@ -59,15 +58,12 @@ const ProtectedRoute = ({ allowedRoles = ['user'] }) => {
     checkAuth();
   }, [isAuthenticated, verifySession]);
 
-  // Calculate required role access
   const hasRequiredRole = role && allowedRoles.includes(role);
 
-  // Loading state
   if (isLoading || isChecking) {
     return <LoadingSpinner />;
   }
 
-  // Error or not authenticated
   if (authError || !isAuthenticated) {
     console.log('Authentication failed, redirecting to login');
     return (
@@ -82,7 +78,6 @@ const ProtectedRoute = ({ allowedRoles = ['user'] }) => {
     );
   }
 
-  // Role check failed
   if (!hasRequiredRole) {
     console.log(`Role ${role} not in ${allowedRoles}, redirecting`);
     
@@ -93,7 +88,6 @@ const ProtectedRoute = ({ allowedRoles = ['user'] }) => {
     return <Navigate to={redirectPath} replace />;
   }
 
-  // Authorized access
   return <Outlet />;
 };
 

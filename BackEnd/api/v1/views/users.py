@@ -22,17 +22,21 @@ def get_users():
     or a specific user
     -- This can be access only by Admin
     """
-    # For GET requests, use request.args instead of get_json()
-    admin = request.args.get("admin")
-    # Any value of admin parameter means it's an admin request
-    if admin:
-        all_users = storage.all(User).values()
-        list_users = []
-        for user in all_users:
-            list_users.append(user.to_dict())
-        return jsonify(list_users)
-    else:
-        return jsonify({"message" : "UnAuthorized"}), 401
+    # Check for admin role in session
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return jsonify({"message": "No authorization token provided"}), 401
+    
+    token = auth_header.split(' ')[1]
+    auth_controller = AuthController()
+    user = auth_controller.verify_token(token)
+    
+    if not user or not user.admin:
+        return jsonify({"message": "Unauthorized. Admin access required"}), 403
+    
+    all_users = storage.all(User).values()
+    list_users = [user.to_dict() for user in all_users]
+    return jsonify(list_users)
 
 
 @app_views.route('/users/<user_id>', methods=['GET'], strict_slashes=False)
