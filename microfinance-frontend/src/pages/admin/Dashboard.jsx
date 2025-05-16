@@ -26,22 +26,24 @@ const Dashboard = () => {
     setError(null);
 
     try {
-      const usersResponse = await api.post('/users', { admin: 'True' });
-      const normalUsers = usersResponse.data.filter((user) => !user.admin);
-
-      const loansResponse = await api.post('/loans', { admin: 'True' });
-      const activeLoans = loansResponse.data.filter((loan) =>
-        ['approved', 'active'].includes(loan.status.toLowerCase())
-      );
-
-      const balanceResponse = await api.get('/company/balance', {
-        data: { admin: 'True' },
+      // Get users list
+      const usersResponse = await api.get('/users', {
+        params: { admin: 'True' }
       });
+      const totalUsers = Array.isArray(usersResponse.data) ? usersResponse.data.filter(user => !user.admin).length : 0;
+
+      // Get loans list
+      const loansResponse = await api.get('/loans', {
+        params: { admin: 'True' }
+      });
+      const activeLoans = Array.isArray(loansResponse.data) ? 
+        loansResponse.data.filter(loan => ['approved', 'active'].includes(loan.status?.toLowerCase()))
+        : [];
 
       setStats({
-        totalUsers: normalUsers.length,
+        totalUsers: totalUsers,
         activeLoans: activeLoans.length,
-        totalBalance: balanceResponse.data?.balance || 0,
+        totalBalance: 0,
       });
     } catch (err) {
       console.error('Dashboard error:', err);
@@ -56,7 +58,7 @@ const Dashboard = () => {
 
   useEffect(() => {
     fetchDashboardData();
-  }, []);
+  }, []); // Ensure this only runs once on component mount
 
   const StatCard = ({ title, value, icon: Icon, color }) => (
     <div className="bg-white shadow rounded-2xl p-5 flex items-center space-x-4">
@@ -104,7 +106,7 @@ const Dashboard = () => {
           <div className="h-10 w-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4">
           <StatCard
             title="Total Users"
             value={stats.totalUsers}
@@ -117,12 +119,7 @@ const Dashboard = () => {
             icon={CreditCardIcon}
             color="bg-green-500"
           />
-          <StatCard
-            title="Total Balance"
-            value={`$${stats.totalBalance.toLocaleString()}`}
-            icon={BanknotesIcon}
-            color="bg-purple-500"
-          />
+         
         </div>
       )}
     </div>
