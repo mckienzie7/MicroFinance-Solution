@@ -14,16 +14,14 @@ export const AuthProvider = ({ children }) => {
 
   // Function to update user state - optimized to prevent redundant updates
   const updateUserState = (userData) => {
-    // Only update if the data actually changed
     const currentUserEmail = user?.email;
     const newUserEmail = userData?.email;
-    
+
     if (currentUserEmail !== newUserEmail) {
       console.log('User data changed, updating state');
       setUser(userData);
-      
+
       if (userData) {
-        // Get role from user data
         const userRole = userData.role || 'user';
         setRole(userRole);
         setIsAdmin(userRole === 'admin');
@@ -38,40 +36,30 @@ export const AuthProvider = ({ children }) => {
 
   // Verify session on mount - optimized to reduce UI flickering
   const verifySession = async () => {
-    // If we're already authenticated with a user and role, skip verification
     if (isAuthenticated && user && role) {
       return;
     }
-    
+
     try {
-      // Only set loading if we're actually going to verify
       setIsLoading(true);
-      
-      // Check if we have a user in storage
+
       const storedUser = authService.getCurrentUser();
-      const sessionId = authService.getSessionId(); // Use the centralized function
-      
-      // If we have both a stored user and session ID, we can consider the user authenticated
-      // This is the optimized path to prevent UI flickering
+      const sessionId = authService.getSessionId();
+
       if (storedUser && sessionId) {
-        console.log('Session is valid, updating user state with:', storedUser);
         updateUserState(storedUser);
-        return; // Exit early - no need for API call
+        return;
       }
-      
-      // If we get here, we don't have valid authentication data
-      console.log('Session is invalid, clearing user state');
+
       setUser(null);
       setRole(null);
       setIsAdmin(false);
       setIsAuthenticated(false);
-      
-      // Clear any existing cookies
+
       document.cookie = 'session_id=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
     } catch (error) {
       console.error('Session verification error:', error);
       setAuthError('There was a problem verifying your session.');
-      // On error, keep the current authentication state
     } finally {
       setIsLoading(false);
     }
@@ -80,28 +68,22 @@ export const AuthProvider = ({ children }) => {
   // Initialize auth state from storage on mount - only once
   useEffect(() => {
     const initializeAuth = async () => {
-      // Start with loading state
       setIsLoading(true);
-      
+
       try {
-        // Use the centralized function to get session ID
         const sessionId = authService.getSessionId();
         const storedUser = authService.getCurrentUser();
-        
-        // Only log in development mode and only if there's something to report
+
         if (process.env.NODE_ENV === 'development' && (storedUser || sessionId)) {
           console.debug('Auth initialization:', { 
             hasUser: !!storedUser, 
             hasSessionId: !!sessionId
           });
         }
-        
-        // If we have both user data and session ID, use them
+
         if (storedUser && sessionId) {
-          // Use updateUserState to prevent redundant updates
           updateUserState(storedUser);
         } else {
-          // Clear auth state if missing user or session
           if (isAuthenticated) {
             console.log('Missing user or session, clearing auth state');
             updateUserState(null);
@@ -114,12 +96,9 @@ export const AuthProvider = ({ children }) => {
         setIsLoading(false);
       }
     };
-    
+
     initializeAuth();
-    
-    // No periodic checks to avoid vibration/loops
-    // We'll only verify on important actions like navigation
-    
+
     return () => {}; // No cleanup needed
   }, []);
 
@@ -128,24 +107,18 @@ export const AuthProvider = ({ children }) => {
     try {
       setIsLoading(true);
       setAuthError(null);
-      
-      // Call the login service
-      
-      // Call the login service
+
       const userData = await authService.login(credentials);
-      
-      // Log the authentication process
+
       console.log('Login successful, updating user state with:', userData);
-      
-      // Update the authentication state
+
       updateUserState(userData);
-      
-      // Force a session verification after login
+
       setTimeout(() => {
         console.log('Verifying session after login...');
         verifySession();
       }, 500);
-      
+
       return userData;
     } catch (error) {
       console.error('Login error in AuthContext:', error);
@@ -162,11 +135,9 @@ export const AuthProvider = ({ children }) => {
       setIsLoading(true);
       setAuthError(null);
       const newUser = await authService.register(userData, isMultipart);
-      
-      // Don't automatically log in the user after registration
-      // Just return the user data without updating the auth state
+
       console.log('Registration successful, but not automatically logging in');
-      
+
       return newUser;
     } catch (error) {
       setAuthError(error.message || 'Registration failed');
@@ -184,7 +155,6 @@ export const AuthProvider = ({ children }) => {
       updateUserState(null);
     } catch (error) {
       console.error('Logout error:', error);
-      // Even if server logout fails, clear local state
       updateUserState(null);
       setAuthError('Logout failed on server, but you have been logged out locally.');
     } finally {
