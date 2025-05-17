@@ -188,8 +188,9 @@ const authService = {
       const user = {
         email: response.data.email,
         username: username,
-        admin: response.data.admin, // Use admin status directly from backend response
-        role: response.data.admin ? 'admin' : 'user', // Set role based on admin status from backend
+        admin: response.data.admin,
+        role: response.data.admin ? 'admin' : 'user',
+        id: response.data.id,  // Store user ID
         message: response.data.message
       };
       

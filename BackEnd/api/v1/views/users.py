@@ -237,6 +237,7 @@ def login() -> tuple[Any, int] | Any:
         "email": email, 
         "username": username,
         "admin": admin,
+        "id": user.id,
         "message": "logged in"
     })
     # Set cookie with proper attributes for CORS
@@ -516,3 +517,24 @@ def download_fayda_document(user_id):
         )
     except Exception as e:
         return make_response(jsonify({'error': str(e)}), 500)
+
+@app_views.route('/users/admins', methods=['GET'], strict_slashes=False)
+@swag_from('documentation/user/get_admins.yml')
+def get_admins():
+    """
+    Retrieves the list of all admin users
+    """
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return jsonify({"message": "No authorization token provided"}), 401
+    
+    token = auth_header.split(' ')[1]
+    auth_controller = AuthController()
+    user = auth_controller.get_user_from_session_id(token)
+    
+    if not user:
+        return jsonify({"message": "Unauthorized"}), 401
+
+    # Get all admin users
+    admin_users = storage.session().query(User).filter(User.admin == True).all()
+    return jsonify([admin.to_dict() for admin in admin_users])

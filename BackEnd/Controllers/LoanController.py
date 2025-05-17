@@ -22,28 +22,29 @@ class LoanController:
         self.db = storage
         self.auth = LoanAuthController()
 
-    def apply_loan(self, customer_id: str, amount: float, interest_rate: float,
-                   repayment_period: int, purpose: str) -> Loan:
+    def apply_loan(self, user_id: str, amount: float, interest_rate: float,
+                   repayment_period: int, purpose: str, admin_id: str) -> Loan:
         """Create a new loan application"""
-        # In this system, customer_id is the same as user_id
-        # Find accounts associated with this user_id
         from BackEnd.models.user import User
         
-        # Validate customer_id
-        if not customer_id or customer_id == 'undefined':
-            raise ValueError("Invalid customer_id provided")
+        # Validate user_id and admin_id
+        if not user_id or user_id == 'undefined':
+            raise ValueError("Invalid user_id provided")
             
-        print(f"Processing loan for customer_id: {customer_id}")
+        if not admin_id or admin_id == 'undefined':
+            raise ValueError("Invalid admin_id provided")
+            
+        print(f"Processing loan for user_id: {user_id} with admin_id: {admin_id}")
         
-        # Find the user first
-        user = self.db.get(User, customer_id)
-        if not user:
-            # For testing, use any user if the specified one doesn't exist
-            print(f"User with ID {customer_id} not found, using first available user")
-            all_users = self.db.all(User).values()
-            user = next(iter(all_users), None)
-            if not user:
-                raise ValueError("No user found in the system")
+        # Find the user and admin
+        customer = self.db.get(User, user_id)
+        admin = self.db.get(User, admin_id)
+        
+        if not customer:
+            raise ValueError("Customer not found")
+            
+        if not admin or not admin.admin:
+            raise ValueError("Invalid admin selected")
         
         # Find or create an account for this user
         all_accounts = self.db.all(Account).values()
@@ -51,14 +52,14 @@ class LoanController:
         
         # Try to find an account for this user
         for acc in all_accounts:
-            if acc.user_id == user.id:
+            if acc.user_id == customer.id:
                 account = acc
                 break
         
         # If no account exists, create one
         if not account:
             account = Account(
-                user_id=user.id,
+                user_id=customer.id,
                 account_type="savings",
                 balance=1000.0,
                 status="active"
@@ -71,7 +72,8 @@ class LoanController:
         end_date = start_date + timedelta(days=repayment_period * 30)  # Assuming 30 days per month
 
         new_loan = Loan(
-            customer_id=customer_id,
+            user_id=user_id,
+            admin_id=admin_id,
             account_id=account.id,
             amount=amount,
             interest_rate=interest_rate,
@@ -242,3 +244,19 @@ class LoanController:
         loan.rejection_reason = reason
         self.db.save()
         return loan
+
+    def get_admin_loans(self, admin_id: str) -> List[Loan]:
+        """Get all loans assigned to a specific admin"""
+        from BackEnd.models.user import User
+        
+        admin = self.db.get(User, admin_id)
+        if not admin or not admin.admin:
+            raise ValueError("Invalid admin ID")
+            
+        return self.db.session().query(Loan).filter(Loan.admin_id == admin_id).all()
+
+    def get_unassigned_loans(self) -> List[Loan]:
+        """Get all pending loans that haven't been assigned to an admin"""
+        return self.db.session().query(Loan).filter(
+            Loan.loan_status == "pending"
+        ).all()

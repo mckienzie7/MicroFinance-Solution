@@ -15,12 +15,9 @@ const MyLoans = () => {
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState('');
   
-  // Loan application form state
-  const [admins] = useState([
-    { id: '1', name: 'Admin 1' },
-    { id: '2', name: 'Admin 2' },
-    { id: '3', name: 'Admin 3' }
-  ]);
+  // Admin list state
+  const [admins, setAdmins] = useState([]);
+  const [isLoadingAdmins, setIsLoadingAdmins] = useState(false);
 
   const [loanForm, setLoanForm] = useState({
     amount: '',
@@ -36,6 +33,27 @@ const MyLoans = () => {
   // Selected loan for details view
   const [selectedLoan, setSelectedLoan] = useState(null);
   
+  // Fetch admins on component mount
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      fetchAdmins();
+    }
+  }, [isAuthenticated, user]);
+
+  // Fetch admins from API
+  const fetchAdmins = async () => {
+    setIsLoadingAdmins(true);
+    try {
+      const response = await api.get('/users/admins');
+      setAdmins(response.data);
+    } catch (err) {
+      console.error('Error fetching admins:', err);
+      setError('Failed to load admin list. Please try again later.');
+    } finally {
+      setIsLoadingAdmins(false);
+    }
+  };
+  
   // Fetch loans on component mount
   useEffect(() => {
     // Reset state on user change
@@ -44,7 +62,8 @@ const MyLoans = () => {
       amount: '',
       term_months: '12',
       interest_rate: '5.0',
-      purpose: ''
+      purpose: '',
+      admin_id: ''
     });
     setError(null);
     setSuccessMessage('');
@@ -60,45 +79,41 @@ const MyLoans = () => {
     setError(null);
     
     try {
-      // Verify API is available
-      try {
-        await api.get('/loans');
-      } catch (err) {
-        console.error('API verification failed:', err);
-        setError('Failed fetching loans endpoint.');
-        setIsLoading(false);
+      // First, fetch the user's account
+      console.log('Fetching user account for user ID:', user.id);
+      const accountsResponse = await api.get('/accounts/me');
+      const userAccounts = accountsResponse.data;
+      console.log('User accounts:', userAccounts);
+
+      if (!userAccounts || userAccounts.length === 0) {
+        setError('No account found. Please create an account first.');
         return;
       }
-      
-      // No /customers endpoint, use user object directly as customer
-      const customer = user;
-      if (!customer) {
-        setError('User profile not found. Please update your profile first.');
-        setIsLoading(false);
-        return;
-      }
-      
-      // Get all loans from the API
+
+      // Get the first account (assuming one user has one account)
+      const userAccount = userAccounts[0];
+      console.log('Using account:', userAccount);
+
+      // Now fetch all loans
       const loansResponse = await api.get('/loans');
       const allLoans = loansResponse.data;
+      console.log('All loans:', allLoans);
 
-      console.log('Loans fetched successfully:', allLoans);
-
-      // Filter loans for the current customer using the numeric ID
-      // Using the same ID (1) that we use for loan applications
-      const customerId = '1'; // Use the same ID as in the loan application
-      const customerLoans = allLoans.filter(loan => loan.customer_id === customerId);
+      // Filter loans for the user's account
+      const userLoans = allLoans.filter(loan => {
+        console.log('Checking loan:', loan);
+        return loan.account_id === userAccount.id;
+      });
       
-      console.log('Filtered loans by customer ID:', customerId, 'Found loans:', customerLoans.length);
-
-    // Sort by date (newest first)
-    customerLoans.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-
-      setLoans(customerLoans);
+      console.log('Filtered user loans:', userLoans);
+      
+      // Sort by date (newest first)
+      userLoans.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      
+      setLoans(userLoans);
     } catch (err) {
       console.error('Error fetching loans:', err);
       if (err.response) {
-        // Handle specific HTTP error responses
         switch (err.response.status) {
           case 404:
             setError('API endpoint not found. Please ensure the backend server is properly configured.');
@@ -114,12 +129,8 @@ const MyLoans = () => {
             setError(`Failed to load loans: ${err.response.data?.error || 'Unknown error'}`);
         }
       } else if (err.request) {
-        // The request was made but no response was received
-        console.error('No response received:', err.request);
         setError('Server not responding. Please try again later.');
       } else {
-        // Something happened in setting up the request that triggered an Error
-        console.error('Request setup error:', err.message);
         setError('Network error. Please check your connection.');
       }
     } finally {
@@ -163,6 +174,11 @@ const MyLoans = () => {
       isValid = false;
     }
 
+    if (!loanForm.admin_id) {
+      errors.admin_id = 'Please select an admin to process your loan.';
+      isValid = false;
+    }
+
     setFormErrors(errors);
     return isValid;
   };
@@ -189,92 +205,64 @@ const MyLoans = () => {
       return;
     }
     
-    // No /customers endpoint, use user object directly as customer
-    const customer = user;
-    if (!customer) {
+    if (!user) {
       setError('User profile not found. Please update your profile first.');
       return;
     }
     
-    // Debug log to see user object structure
-    console.log('User object for loan application:', user);
-    
     setIsLoading(true);
     setError(null);
-    setSuccessMessage('');
     
     try {
-      // Format the loan application data according to backend requirements
-      // Make sure field names match exactly what the backend expects
+      // Debug log to see user object
+      console.log('User object:', user);
+      console.log('User ID:', user.id);
       
-      // Generate a numeric ID for the customer based on username
-      // The backend expects a numeric ID for customer_id
-      // For testing purposes, we'll use a simple numeric ID (1)
-      const customerId = '1'; // Use a valid numeric ID that exists in the backend
-      
-      console.log('Using numeric ID as customer ID for loan application:', customerId);
-      
-      if (!user?.username) {
-        setError('Username not found. Please log out and log back in.');
-        setIsLoading(false);
+      if (!user.id) {
+        setError('User ID not found. Please log out and log in again.');
         return;
       }
       
       const loanData = {
-        customer_id: customerId, // Use the actual user ID
+        user_id: user.id,
         amount: parseFloat(loanForm.amount),
-        // The API endpoint expects term_months
-        term_months: parseInt(loanForm.term_months),
         interest_rate: parseFloat(loanForm.interest_rate),
-        purpose: loanForm.purpose
+        repayment_period: parseInt(loanForm.term_months),
+        purpose: loanForm.purpose,
+        admin_id: loanForm.admin_id
       };
       
-      console.log('Using customer_id from user profile:', customerId);
-      console.log('Submitting loan application:', loanData);
+      // Debug log to see request data
+      console.log('Sending loan data:', loanData);
       
-      // Send loan application to the backend API
       const response = await api.post('/loans', loanData);
       
-      console.log('Loan application submitted successfully:', response.data);
-      
-      // Reset form and show success message
+      setSuccessMessage('Loan application submitted successfully!');
       setLoanForm({
         amount: '',
         term_months: '12',
         interest_rate: '5.0',
-        purpose: ''
+        purpose: '',
+        admin_id: ''
       });
       
-      setSuccessMessage('Loan application submitted successfully! Your application is now pending approval.');
-      
-      // Refresh loans to get the latest data including the new application
+      // Refresh loans list
       fetchLoans();
     } catch (err) {
-      console.error('Error submitting loan application:', err);
+      console.error('Error submitting loan:', err);
       if (err.response) {
-        // Handle different error responses from the API
-        if (err.response.status === 400) {
-          setError(err.response.data?.error || 'Invalid loan application data. Please check all fields.');
-        } else if (err.response.status === 401) {
-          setError('Authentication error. Please log in again.');
-        } else {
-          setError(err.response.data?.error || 'Failed to submit loan application. Please try again.');
-        }
-      } else if (err.request) {
-        // The request was made but no response was received
-        console.error('No response received:', err.request);
-        setError('Server not responding. Please try again later.');
+        console.error('Error response data:', err.response.data);
+        console.error('Error response status:', err.response.status);
+        console.error('Error response headers:', err.response.headers);
+        setError(err.response.data?.error || 'Failed to submit loan application');
       } else {
-        // Something happened in setting up the request that triggered an Error
-        console.error('Request setup error:', err.message);
-        setError('Network error. Please check your connection.');
+        setError('Network error. Please try again later.');
       }
     } finally {
       setIsLoading(false);
     }
   };
 
-  
   // Format date for display
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
@@ -310,122 +298,47 @@ const MyLoans = () => {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900">My Loans</h1>
-        <button 
-          className="flex items-center px-4 py-2 text-sm font-medium rounded-lg text-blue-600 hover:text-blue-700 hover:bg-blue-50 transition-colors"
-          onClick={fetchLoans}
-          disabled={isLoading}
-        >
-          <ArrowPathIcon className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-          {isLoading ? 'Loading...' : 'Refresh'}
-        </button>
-      </div>
+    <div className="container mx-auto px-4 py-8">
+      <h1 className="text-2xl font-bold mb-6">My Loans</h1>
       
-      {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-          <p>{error}</p>
-        </div>
-      )}
-      
-      {successMessage && (
-        <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg flex items-start">
-          <CurrencyDollarIcon className="h-5 w-5 mr-2 mt-0.5" />
-          <p>{successMessage}</p>
-        </div>
-      )}
-      
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Loan Application Form */}
-        <div className="lg:col-span-1 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="p-6 border-b border-gray-200">
-            <h2 className="text-lg font-medium text-gray-900">Apply for a Loan</h2>
-          </div>
-          <form onSubmit={handleSubmitLoan} className="p-6 space-y-4">
+      {/* Loan Application Form */}
+      <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+        <h2 className="text-xl font-semibold mb-4">Apply for a Loan</h2>
+        
+        <form onSubmit={handleSubmitLoan} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label htmlFor="amount" className="block text-sm font-medium text-gray-700 mb-1">
-                Loan Amount ({formatCurrency(loanForm.amount)})
-              </label>
-              <input
-                type="number"
-                id="amount"
-                name="amount"
-                value={loanForm.amount}
-                onChange={handleInputChange}
-                className={`w-full px-3 py-2 border ${formErrors.amount ? 'border-red-300' : 'border-gray-300'} rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
-                placeholder="Enter amount"
-                min="100"
-                step="100"
-              />
+              <label className="block text-sm font-medium text-gray-700">Loan Amount</label>
+              <div className="mt-1 relative rounded-md shadow-sm">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <CurrencyDollarIcon className="h-5 w-5 text-gray-400" />
+                </div>
+                <input
+                  type="number"
+                  name="amount"
+                  value={loanForm.amount}
+                  onChange={handleInputChange}
+                  className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                  placeholder="Enter amount"
+                />
+              </div>
               {formErrors.amount && (
                 <p className="mt-1 text-sm text-red-600">{formErrors.amount}</p>
               )}
             </div>
-            
-            <div>
-              <label htmlFor="term_months" className="block text-sm font-medium text-gray-700 mb-1">
-                Loan Term
-              </label>
-              <select
-                id="term_months"
-                name="term_months"
-                value={loanForm.term_months}
-                onChange={handleInputChange}
-                className={`w-full px-3 py-2 border ${formErrors.term_months ? 'border-red-300' : 'border-gray-300'} rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
-              >
-                <option value="3">3 months</option>
-                <option value="6">6 months</option>
-                <option value="12">12 months</option>
-                <option value="24">24 months</option>
-                <option value="36">36 months</option>
-              </select>
-              {formErrors.term_months && (
-                <p className="mt-1 text-sm text-red-600">{formErrors.term_months}</p>
-              )}
-            </div>
-            
-            <div>
-              <label htmlFor="interest_rate" className="block text-sm font-medium text-gray-700 mb-1">
-                Interest Rate (%)
-              </label>
-              <select
-                id="interest_rate"
-                name="interest_rate"
-                value={loanForm.interest_rate}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option value="5.0">5.0% - Standard</option>
-                <option value="3.5">3.5% - Good Credit</option>
-                <option value="7.5">7.5% - Higher Risk</option>
-              </select>
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Estimated Monthly Payment
-              </label>
-              <div className="w-full px-3 py-2 border border-gray-200 bg-gray-50 rounded-md">
-                <span className="font-medium">${calculateMonthlyPayment()}</span>
-              </div>
-            </div>
 
             <div>
-              <label htmlFor="admin_id" className="block text-sm font-medium text-gray-700 mb-1">
-                Select Admin
-              </label>
+              <label className="block text-sm font-medium text-gray-700">Select Admin</label>
               <select
-                id="admin_id"
                 name="admin_id"
                 value={loanForm.admin_id}
                 onChange={handleInputChange}
-                className={`w-full px-3 py-2 border ${formErrors.admin_id ? 'border-red-300' : 'border-gray-300'} rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
+                className="mt-1 block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 rounded-md"
               >
                 <option value="">Select an admin</option>
                 {admins.map(admin => (
                   <option key={admin.id} value={admin.id}>
-                    {admin.name}
+                    {admin.fullname || admin.username}
                   </option>
                 ))}
               </select>
@@ -433,118 +346,180 @@ const MyLoans = () => {
                 <p className="mt-1 text-sm text-red-600">{formErrors.admin_id}</p>
               )}
             </div>
-            
+
             <div>
-              <label htmlFor="purpose" className="block text-sm font-medium text-gray-700 mb-1">
-                Loan Purpose
-              </label>
-              <textarea
-                id="purpose"
-                name="purpose"
-                value={loanForm.purpose}
+              <label className="block text-sm font-medium text-gray-700">Loan Term (months)</label>
+              <select
+                name="term_months"
+                value={loanForm.term_months}
                 onChange={handleInputChange}
-                rows="3"
-                className={`w-full px-3 py-2 border ${formErrors.purpose ? 'border-red-300' : 'border-gray-300'} rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
-                placeholder="Briefly describe why you need this loan"
-              ></textarea>
-              {formErrors.purpose && (
-                <p className="mt-1 text-sm text-red-600">{formErrors.purpose}</p>
+                className="mt-1 block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 rounded-md"
+              >
+                <option value="12">12 months</option>
+                <option value="24">24 months</option>
+                <option value="36">36 months</option>
+                <option value="48">48 months</option>
+                <option value="60">60 months</option>
+              </select>
+              {formErrors.term_months && (
+                <p className="mt-1 text-sm text-red-600">{formErrors.term_months}</p>
               )}
             </div>
-            
-            <div className="pt-4">
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="w-full px-4 py-3 text-center font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:bg-blue-300"
-              >
-                {isLoading ? 'Processing...' : 'Submit Loan Application'}
-              </button>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Interest Rate (%)</label>
+              <input
+                type="number"
+                name="interest_rate"
+                value={loanForm.interest_rate}
+                onChange={handleInputChange}
+                step="0.1"
+                className="mt-1 block w-full pl-3 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+              />
+              {formErrors.interest_rate && (
+                <p className="mt-1 text-sm text-red-600">{formErrors.interest_rate}</p>
+              )}
             </div>
-          </form>
-        </div>
-        
-        {/* Loans List */}
-        <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="p-6 border-b border-gray-200">
-            <h2 className="text-lg font-medium text-gray-900">My Loan Applications</h2>
           </div>
-          
-          {isLoading && loans.length === 0 ? (
-            <div className="p-6">
-              <div className="animate-pulse space-y-4">
-                {[1, 2, 3].map(i => (
-                  <div key={i} className="flex justify-between">
-                    <div className="h-4 bg-gray-200 rounded w-1/4"></div>
-                    <div className="h-4 bg-gray-200 rounded w-1/4"></div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : loans.length > 0 ? (
-            <div className="overflow-hidden overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Term</th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {loans.map((loan) => (
-                    <tr key={loan.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {formatDate(loan.created_at)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {formatCurrency(loan.amount)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {loan.term_months} months
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        <div className="flex items-center space-x-2">
-                          <span className={`px-2 py-1 text-xs rounded-full ${getStatusBadgeColor(loan.loan_status)}`}>
-                            {loan.loan_status || 'pending'}
-                          </span>
-                          <span className="text-gray-500 text-sm">{formatDate(loan.created_at)}</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        <button 
-                          onClick={() => setSelectedLoan(loan)}
-                          className="text-blue-600 hover:text-blue-800"
-                        >
-                          View Details
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <div className="p-6 text-center text-gray-500">
-              <div className="flex flex-col items-center justify-center py-5">
-                <DocumentTextIcon className="h-12 w-12 text-gray-300 mb-3" />
-                <p>No loan applications found.</p>
-                <p className="text-sm mt-1">Apply for a loan to get started!</p>
-              </div>
-            </div>
-          )}
-        </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Loan Purpose</label>
+            <textarea
+              name="purpose"
+              value={loanForm.purpose}
+              onChange={handleInputChange}
+              rows="3"
+              className="mt-1 block w-full pl-3 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+              placeholder="Describe the purpose of your loan"
+            />
+            {formErrors.purpose && (
+              <p className="mt-1 text-sm text-red-600">{formErrors.purpose}</p>
+            )}
+          </div>
+
+          <div className="bg-gray-50 p-4 rounded-md">
+            <h3 className="text-sm font-medium text-gray-700 mb-2">Monthly Payment Estimate</h3>
+            <p className="text-2xl font-bold text-indigo-600">
+              ${calculateMonthlyPayment().toFixed(2)}
+            </p>
+          </div>
+
+          <div className="flex justify-end">
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+            >
+              {isLoading ? (
+                <>
+                  <ArrowPathIcon className="animate-spin -ml-1 mr-2 h-5 w-5" />
+                  Submitting...
+                </>
+              ) : (
+                'Submit Application'
+              )}
+            </button>
+          </div>
+        </form>
       </div>
-      
+
+      {/* Error and Success Messages */}
+      {error && (
+        <div className="bg-red-50 border-l-4 border-red-400 p-4 mb-6">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <p className="text-sm text-red-700">{error}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {successMessage && (
+        <div className="bg-green-50 border-l-4 border-green-400 p-4 mb-6">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <p className="text-sm text-green-700">{successMessage}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Loans List */}
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <h2 className="text-xl font-semibold mb-4">My Loan Applications</h2>
+        
+        {isLoading ? (
+          <div className="flex justify-center items-center py-8">
+            <ArrowPathIcon className="animate-spin h-8 w-8 text-indigo-600" />
+          </div>
+        ) : loans.length === 0 ? (
+          <p className="text-gray-500 text-center py-8">No loan applications found.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Purpose</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {loans.map(loan => (
+                  <tr key={loan.id}>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900">${loan.amount}</div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="text-sm text-gray-900">{loan.purpose}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                        loan.loan_status === 'approved' ? 'bg-green-100 text-green-800' :
+                        loan.loan_status === 'rejected' ? 'bg-red-100 text-red-800' :
+                        'bg-yellow-100 text-yellow-800'
+                      }`}>
+                        {loan.loan_status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {new Date(loan.created_at).toLocaleDateString()}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <button
+                        onClick={() => setSelectedLoan(loan)}
+                        className="text-indigo-600 hover:text-indigo-900"
+                      >
+                        View Details
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
       {/* Loan Details Modal */}
       {selectedLoan && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
-            <div className="p-6 border-b border-gray-200 flex justify-between items-center">
-              <h3 className="text-lg font-medium text-gray-900">Loan Details</h3>
-              <button 
+        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg max-w-2xl w-full p-6">
+            <div className="flex justify-between items-start mb-4">
+              <h3 className="text-lg font-medium">Loan Details</h3>
+              <button
                 onClick={() => setSelectedLoan(null)}
                 className="text-gray-400 hover:text-gray-500"
               >
@@ -554,57 +529,42 @@ const MyLoans = () => {
                 </svg>
               </button>
             </div>
-            <div className="p-6 space-y-4">
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600">Loan ID:</span>
-                <span className="font-medium">{selectedLoan.id}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600">Amount:</span>
-                <span className="font-medium">{formatCurrency(selectedLoan.amount)}</span>
-              </div>
-
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600">Interest Rate:</span>
-                <span className="font-medium">{selectedLoan.interest_rate}%</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600">Term:</span>
-                <span className="font-medium">{selectedLoan.term_months} months</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600">Monthly Payment:</span>
-                <span className="font-medium">{formatCurrency(selectedLoan.monthly_payment || 
-                  ((selectedLoan.amount * (selectedLoan.interest_rate / 100 / 12) * 
-                    Math.pow(1 + (selectedLoan.interest_rate / 100 / 12), selectedLoan.term_months)) / 
-                   (Math.pow(1 + (selectedLoan.interest_rate / 100 / 12), selectedLoan.term_months) - 1)))}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600">Application Date:</span>
-                <span className="font-medium">{formatDate(selectedLoan.created_at)}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600">Due Date:</span>
-                <span className="font-medium">{formatDate(selectedLoan.end_date)}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600">Status:</span>
-                <span className={`px-2 py-1 text-xs rounded-full ${getStatusBadgeColor(selectedLoan.loan_status)}`}>
-                  {selectedLoan.loan_status || 'pending'}
-                </span>
-              </div>
+            
+            <div className="space-y-4">
               <div>
-                <span className="text-gray-600 block mb-1">Purpose:</span>
-                <p className="text-gray-900 bg-gray-50 p-3 rounded-md">{selectedLoan.purpose}</p>
+                <h4 className="text-sm font-medium text-gray-500">Amount</h4>
+                <p className="mt-1 text-lg font-semibold">${selectedLoan.amount}</p>
               </div>
-            </div>
-            <div className="p-6 border-t border-gray-200">
-              <button
-                onClick={() => setSelectedLoan(null)}
-                className="w-full px-4 py-2 text-center font-medium rounded-lg bg-gray-100 text-gray-800 hover:bg-gray-200 transition-colors"
-              >
-                Close
-              </button>
+              
+              <div>
+                <h4 className="text-sm font-medium text-gray-500">Purpose</h4>
+                <p className="mt-1">{selectedLoan.purpose}</p>
+              </div>
+              
+              <div>
+                <h4 className="text-sm font-medium text-gray-500">Status</h4>
+                <p className="mt-1">
+                  <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                    selectedLoan.loan_status === 'approved' ? 'bg-green-100 text-green-800' :
+                    selectedLoan.loan_status === 'rejected' ? 'bg-red-100 text-red-800' :
+                    'bg-yellow-100 text-yellow-800'
+                  }`}>
+                    {selectedLoan.loan_status}
+                  </span>
+                </p>
+              </div>
+              
+              <div>
+                <h4 className="text-sm font-medium text-gray-500">Applied Date</h4>
+                <p className="mt-1">{new Date(selectedLoan.created_at).toLocaleDateString()}</p>
+              </div>
+              
+              {selectedLoan.rejection_reason && (
+                <div>
+                  <h4 className="text-sm font-medium text-gray-500">Rejection Reason</h4>
+                  <p className="mt-1 text-red-600">{selectedLoan.rejection_reason}</p>
+                </div>
+              )}
             </div>
           </div>
         </div>
