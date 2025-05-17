@@ -16,11 +16,18 @@ const MyLoans = () => {
   const [successMessage, setSuccessMessage] = useState('');
   
   // Loan application form state
+  const [admins] = useState([
+    { id: '1', name: 'Admin 1' },
+    { id: '2', name: 'Admin 2' },
+    { id: '3', name: 'Admin 3' }
+  ]);
+
   const [loanForm, setLoanForm] = useState({
     amount: '',
     term_months: '12',
     interest_rate: '5.0',
-    purpose: ''
+    purpose: '',
+    admin_id: ''
   });
   
   // Form validation state
@@ -402,6 +409,29 @@ const MyLoans = () => {
               <div className="w-full px-3 py-2 border border-gray-200 bg-gray-50 rounded-md">
                 <span className="font-medium">${calculateMonthlyPayment()}</span>
               </div>
+            </div>
+
+            <div>
+              <label htmlFor="admin_id" className="block text-sm font-medium text-gray-700 mb-1">
+                Select Admin
+              </label>
+              <select
+                id="admin_id"
+                name="admin_id"
+                value={loanForm.admin_id}
+                onChange={handleInputChange}
+                className={`w-full px-3 py-2 border ${formErrors.admin_id ? 'border-red-300' : 'border-gray-300'} rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
+              >
+                <option value="">Select an admin</option>
+                {admins.map(admin => (
+                  <option key={admin.id} value={admin.id}>
+                    {admin.name}
+                  </option>
+                ))}
+              </select>
+              {formErrors.admin_id && (
+                <p className="mt-1 text-sm text-red-600">{formErrors.admin_id}</p>
+              )}
             </div>
             
             <div>
