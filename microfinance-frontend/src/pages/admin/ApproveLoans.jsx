@@ -32,21 +32,23 @@ const ApproveLoans = () => {
       setError('');
       
       // Fetch real loan data from the API with admin privileges
-      const response = await api.post('/loans', { admin: "True" });
+      const response = await api.get('/loans', {
+        params: { admin: "True" }
+      });
       
       if (response.data && Array.isArray(response.data)) {
         // Format the loan data to match our component's expected structure
         const formattedLoans = response.data.map(loan => ({
           id: loan.id,
-          customerId: loan.customer_id,
-          customerName: loan.customer_name || 'Unknown',
+          customerId: loan.user_id,
+          customerName: loan.user?.username || 'Unknown',
           amount: loan.amount,
           purpose: loan.purpose,
           creditScore: loan.credit_score || 70, // Default if not provided
-          status: loan.status.toLowerCase(),
+          status: loan.loan_status?.toLowerCase() || 'pending',
           applicationDate: loan.created_at || loan.application_date,
           documents: loan.documents || ['application.pdf'],
-          term: loan.term || 12,
+          term: loan.repayment_period || 12,
           interestRate: loan.interest_rate || '8.5'
         }));
         
@@ -115,9 +117,9 @@ const ApproveLoans = () => {
     setActionLoading(true);
     try {
       // Send the loan status update to the API
-      await api.put(`/loans/${loanId}`, {
-        status: action,
-        admin: "True"
+      const endpoint = action === 'approved' ? `/loans/${loanId}/approve` : `/loans/${loanId}/reject`;
+      const response = await api.post(endpoint, {
+        reason: action === 'rejected' ? 'Loan application rejected' : undefined
       });
       
       // Update the local state to reflect the change
