@@ -7,6 +7,8 @@ from BackEnd.models.Loan import Loan
 from BackEnd.models import storage
 from BackEnd.api.v1.views import app_views
 from BackEnd.Controllers.LoanController import LoanController
+from BackEnd.Controllers.AuthController import AuthController
+from BackEnd.models.Account import Account
 
 @app_views.route('/loans', methods=['GET'], strict_slashes=False)
 @swag_from('documentation/loan/all_loans.yml')
@@ -14,31 +16,91 @@ def get_loans():
     """
     Retrieves the list of all loan objects
     """
-    all_loans = storage.all(Loan).values()
-    list_loans = []
-    for loan in all_loans:
-        list_loans.append(loan.to_dict())
-    return jsonify(list_loans)
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return jsonify({"message": "No authorization token provided"}), 401
+    
+    token = auth_header.split(' ')[1]
+    auth_controller = AuthController()
+    user = auth_controller.get_user_from_session_id(token)
+    
+    if not user:
+        return jsonify({"message": "Unauthorized"}), 401
+
+    controller = LoanController()
+    
+    # If user is admin, they can see their assigned loans
+    if user.admin:
+        try:
+            loans = controller.get_admin_loans(user.id)
+            return jsonify([loan.to_dict() for loan in loans])
+        except ValueError as e:
+            return make_response(jsonify({"error": str(e)}), 400)
+    
+    # If user is not admin, they can only see their own loans
+    try:
+        # Use SQLAlchemy query to get loans with account relationship loaded
+        user_loans = storage.session().query(Loan).join(Loan.account).filter(Account.user_id == user.id).all()
+        # Convert loans to dict and include account relationship
+        loan_dicts = []
+        for loan in user_loans:
+            loan_dict = loan.to_dict()
+            if loan.account:
+                loan_dict['account'] = loan.account.to_dict()
+            loan_dicts.append(loan_dict)
+        return jsonify(loan_dicts)
+    except Exception as e:
+        print(f"Error fetching user loans: {e}")
+        return make_response(jsonify({"error": "Failed to fetch loans"}), 500)
 
 @app_views.route('/loans/<loan_id>', methods=['GET'], strict_slashes=False)
 @swag_from('documentation/loan/get_loan.yml')
 def get_loan(loan_id):
-    """ Retrieves a specific loan """
+    """
+    Retrieves a specific loan
+    """
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return jsonify({"message": "No authorization token provided"}), 401
+    
+    token = auth_header.split(' ')[1]
+    auth_controller = AuthController()
+    user = auth_controller.get_user_from_session_id(token)
+    
+    if not user:
+        return jsonify({"message": "Unauthorized"}), 401
+
     loan = storage.get(Loan, loan_id)
     if not loan:
         abort(404)
+
+    # Check if user has permission to view this loan
+    if not user.admin and loan.account.user_id != user.id:
+        return jsonify({"message": "Unauthorized"}), 403
+
     return jsonify(loan.to_dict())
 
 @app_views.route('/loans', methods=['POST'], strict_slashes=False)
 @swag_from('documentation/loan/post_loan.yml')
 def post_loan():
     """
-    Creates a loan
+    Creates a loan application
     """
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return jsonify({"message": "No authorization token provided"}), 401
+    
+    token = auth_header.split(' ')[1]
+    auth_controller = AuthController()
+    user = auth_controller.get_user_from_session_id(token)
+    
+    if not user:
+        return jsonify({"message": "Unauthorized"}), 401
+
     if not request.get_json():
         abort(400, description="Not a JSON")
 
-    required_fields = ['customer_id', 'amount', 'interest_rate', 'term_months', 'purpose']
+    required_fields = ['user_id', 'amount', 'interest_rate', 'repayment_period', 'purpose', 'admin_id']
     data = request.get_json()
     
     for field in required_fields:
@@ -47,74 +109,117 @@ def post_loan():
 
     controller = LoanController()
     try:
-        # Create a new dictionary with the correct parameter names
-        loan_data = {}
-        
-        # Map the parameters correctly
-        if 'customer_id' in data:
-            loan_data['customer_id'] = data['customer_id']
-        
-        if 'amount' in data:
-            loan_data['amount'] = float(data['amount'])
-            
-        if 'interest_rate' in data:
-            loan_data['interest_rate'] = float(data['interest_rate'])
-            
-        # Map term_months to repayment_period
-        if 'term_months' in data:
-            loan_data['repayment_period'] = int(data['term_months'])
-        elif 'repayment_period' in data:
-            loan_data['repayment_period'] = int(data['repayment_period'])
-            
-        if 'purpose' in data:
-            loan_data['purpose'] = data['purpose']
-            
-        # Apply the loan with the correctly mapped parameters
-        loan = controller.apply_loan(**loan_data)
+        loan = controller.apply_loan(
+            data['user_id'],
+            data['amount'],
+            data['interest_rate'],
+            data['repayment_period'],
+            data['purpose'],
+            data['admin_id']
+        )
         return make_response(jsonify(loan.to_dict()), 201)
     except ValueError as e:
         return make_response(jsonify({"error": str(e)}), 400)
-    except Exception as e:
-        # Log the error for debugging
-        print(f"Error in post_loan: {str(e)}")
-        return make_response(jsonify({"error": "Internal server error"}), 500)
 
-@app_views.route('/loans/<loan_id>', methods=['PUT'], strict_slashes=False)
-@swag_from('documentation/loan/put_loan.yml')
-def put_loan(loan_id):
+@app_views.route('/loans/admin/<admin_id>', methods=['GET'], strict_slashes=False)
+@swag_from('documentation/loan/get_admin_loans.yml')
+def get_admin_loans(admin_id):
     """
-    Updates a loan
+    Gets all loans assigned to a specific admin
     """
-    loan = storage.get(Loan, loan_id)
-    if not loan:
-        abort(404)
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return jsonify({"message": "No authorization token provided"}), 401
+    
+    token = auth_header.split(' ')[1]
+    auth_controller = AuthController()
+    user = auth_controller.get_user_from_session_id(token)
+    
+    if not user or not user.admin:
+        return jsonify({"message": "Unauthorized. Admin access required"}), 403
+
+    controller = LoanController()
+    try:
+        loans = controller.get_admin_loans(admin_id)
+        return jsonify([loan.to_dict() for loan in loans])
+    except ValueError as e:
+        return make_response(jsonify({"error": str(e)}), 400)
+
+@app_views.route('/loans/unassigned', methods=['GET'], strict_slashes=False)
+@swag_from('documentation/loan/get_unassigned_loans.yml')
+def get_unassigned_loans():
+    """
+    Gets all pending loans that haven't been assigned to an admin
+    """
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return jsonify({"message": "No authorization token provided"}), 401
+    
+    token = auth_header.split(' ')[1]
+    auth_controller = AuthController()
+    user = auth_controller.get_user_from_session_id(token)
+    
+    if not user or not user.admin:
+        return jsonify({"message": "Unauthorized. Admin access required"}), 403
+
+    controller = LoanController()
+    loans = controller.get_unassigned_loans()
+    return jsonify([loan.to_dict() for loan in loans])
+
+@app_views.route('/loans/<loan_id>/approve', methods=['POST'], strict_slashes=False)
+@swag_from('documentation/loan/approve_loan.yml')
+def approve_loan(loan_id):
+    """
+    Approves a loan application
+    """
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return jsonify({"message": "No authorization token provided"}), 401
+    
+    token = auth_header.split(' ')[1]
+    auth_controller = AuthController()
+    user = auth_controller.get_user_from_session_id(token)
+    
+    if not user or not user.admin:
+        return jsonify({"message": "Unauthorized. Admin access required"}), 403
+
+    controller = LoanController()
+    try:
+        loan = controller.approve_loan(loan_id, user.id)
+        return make_response(jsonify(loan.to_dict()), 200)
+    except ValueError as e:
+        return make_response(jsonify({"error": str(e)}), 400)
+
+@app_views.route('/loans/<loan_id>/reject', methods=['POST'], strict_slashes=False)
+@swag_from('documentation/loan/reject_loan.yml')
+def reject_loan(loan_id):
+    """
+    Rejects a loan application
+    """
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return jsonify({"message": "No authorization token provided"}), 401
+    
+    token = auth_header.split(' ')[1]
+    auth_controller = AuthController()
+    user = auth_controller.get_user_from_session_id(token)
+    
+    if not user or not user.admin:
+        return jsonify({"message": "Unauthorized. Admin access required"}), 403
 
     if not request.get_json():
         abort(400, description="Not a JSON")
 
-    ignore = ['id', 'created_at', 'updated_at', 'customer_id']
     data = request.get_json()
-    
+    if 'reason' not in data:
+        abort(400, description="Missing reason")
+
     controller = LoanController()
     try:
-        updated_loan = controller.update_loan(loan, **data)
-        return make_response(jsonify(updated_loan.to_dict()), 200)
+        loan = controller.reject_loan(loan_id, user.id, data['reason'])
+        return make_response(jsonify(loan.to_dict()), 200)
     except ValueError as e:
         return make_response(jsonify({"error": str(e)}), 400)
-
-@app_views.route('/loans/<loan_id>', methods=['DELETE'], strict_slashes=False)
-@swag_from('documentation/loan/delete_loan.yml')
-def delete_loan(loan_id):
-    """
-    Deletes a loan
-    """
-    loan = storage.get(Loan, loan_id)
-    if not loan:
-        abort(404)
-
-    controller = LoanController()
-    controller.cancel_loan(loan)
-    return make_response(jsonify({}), 200)
 
 @app_views.route('/loans/<loan_id>/repayments', methods=['GET'], strict_slashes=False)
 @swag_from('documentation/loan/get_loan_repayments.yml')
@@ -128,44 +233,4 @@ def get_loan_repayments(loan_id):
 
     controller = LoanController()
     repayments = controller.get_loan_repayments(loan)
-    return jsonify([repayment.to_dict() for repayment in repayments])
-
-@app_views.route('/loans/<loan_id>/approve', methods=['PUT'], strict_slashes=False)
-@swag_from('documentation/loan/approve_loan.yml')
-def approve_loan(loan_id):
-    """
-    Approves a loan
-    """
-    loan = storage.get(Loan, loan_id)
-    if not loan:
-        abort(404)
-
-    controller = LoanController()
-    try:
-        approved_loan = controller.approve_loan(loan)
-        return make_response(jsonify(approved_loan.to_dict()), 200)
-    except ValueError as e:
-        return make_response(jsonify({"error": str(e)}), 400)
-
-@app_views.route('/loans/<loan_id>/reject', methods=['PUT'], strict_slashes=False)
-@swag_from('documentation/loan/reject_loan.yml')
-def reject_loan(loan_id):
-    """
-    Rejects a loan
-    """
-    loan = storage.get(Loan, loan_id)
-    if not loan:
-        abort(404)
-
-    if not request.get_json():
-        abort(400, description="Not a JSON")
-
-    data = request.get_json()
-    reason = data.get('reason', 'No reason provided')
-
-    controller = LoanController()
-    try:
-        rejected_loan = controller.reject_loan(loan, reason)
-        return make_response(jsonify(rejected_loan.to_dict()), 200)
-    except ValueError as e:
-        return make_response(jsonify({"error": str(e)}), 400) 
+    return jsonify([repayment.to_dict() for repayment in repayments]) 
