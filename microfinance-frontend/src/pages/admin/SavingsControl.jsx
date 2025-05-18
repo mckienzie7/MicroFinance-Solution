@@ -6,7 +6,9 @@ import {
   ArrowPathIcon,
   CurrencyDollarIcon,
   ArrowDownIcon,
-  ArrowUpIcon
+  ArrowUpIcon,
+  EyeIcon,
+  XMarkIcon
 } from '@heroicons/react/24/outline';
 import api from '../../services/api';
 
@@ -17,6 +19,8 @@ const SavingsControl = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [filter, setFilter] = useState('all');
+  const [selectedTransaction, setSelectedTransaction] = useState(null);
+  const [showModal, setShowModal] = useState(false);
   const itemsPerPage = 10;
 
   const fetchTransactions = async () => {
@@ -28,18 +32,26 @@ const SavingsControl = () => {
       const accountsResponse = await api.get('/accounts');
       const accounts = accountsResponse.data;
       
+      // Get all users first
+      const usersResponse = await api.get('/users');
+      const users = usersResponse.data;
+      const userMap = new Map(users.map(user => [user.id, user]));
+      
       // Then get transactions for each account
       const allTransactions = [];
       for (const account of accounts) {
         try {
           const transactionsResponse = await api.get(`/accounts/${account.id}/transactions`);
-          const accountTransactions = transactionsResponse.data.map(transaction => ({
-            ...transaction,
-            accountNumber: account.account_number,
-            accountType: account.account_type,
-            userName: account.user?.username || 'Unknown',
-            userId: account.user_id
-          }));
+          const accountTransactions = transactionsResponse.data.map(transaction => {
+            const user = userMap.get(account.user_id);
+            return {
+              ...transaction,
+              accountNumber: account.account_number,
+              accountType: account.account_type,
+              userName: user?.fullname || 'Unknown',
+              userId: account.user_id
+            };
+          });
           allTransactions.push(...accountTransactions);
         } catch (err) {
           console.error(`Error fetching transactions for account ${account.id}:`, err);
@@ -163,19 +175,18 @@ const SavingsControl = () => {
             <table className="min-w-full divide-y divide-gray-200 text-sm">
               <thead className="bg-gray-50 text-xs text-gray-500 uppercase tracking-wider">
                 <tr>
-                  <th className="px-4 py-3 text-left">Transaction ID</th>
-                  <th className="px-4 py-3 text-left">Customer</th>
+                  <th className="px-4 py-3 text-left">User</th>
                   <th className="px-4 py-3 text-left">Account</th>
                   <th className="px-4 py-3 text-left">Type</th>
                   <th className="px-4 py-3 text-left">Amount</th>
                   <th className="px-4 py-3 text-left">Date</th>
+                  <th className="px-4 py-3 text-left">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 bg-white">
                 {transactions.length > 0 ? (
                   transactions.map((transaction) => (
                     <tr key={transaction.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 font-medium text-gray-900">{transaction.id}</td>
                       <td className="px-4 py-3">
                         <div className="flex items-center">
                           <div className="h-8 w-8 bg-gray-100 rounded-full flex items-center justify-center">
@@ -183,7 +194,6 @@ const SavingsControl = () => {
                           </div>
                           <div className="ml-3">
                             <div className="text-sm font-medium text-gray-900">{transaction.userName}</div>
-                            <div className="text-xs text-gray-500">ID: {transaction.userId}</div>
                           </div>
                         </div>
                       </td>
@@ -209,6 +219,17 @@ const SavingsControl = () => {
                         </div>
                       </td>
                       <td className="px-4 py-3 text-gray-500">{formatDate(transaction.created_at)}</td>
+                      <td className="px-4 py-3 text-sm text-gray-900">
+                        <button
+                          onClick={() => {
+                            setSelectedTransaction(transaction);
+                            setShowModal(true);
+                          }}
+                          className="text-blue-600 hover:text-blue-900"
+                        >
+                          <EyeIcon className="h-5 w-5" />
+                        </button>
+                      </td>
                     </tr>
                   ))
                 ) : (
@@ -264,6 +285,68 @@ const SavingsControl = () => {
           </div>
         </div>
       </div>
+
+      {/* Transaction Details Modal */}
+      {showModal && selectedTransaction && (
+        <div className="fixed inset-0 z-10 overflow-y-auto">
+          <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={() => setShowModal(false)} />
+
+            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+              <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div className="sm:flex sm:items-start">
+                  <div className="mt-3 text-center sm:mt-0 sm:text-left w-full">
+                    <div className="flex justify-between items-center mb-4">
+                      <h3 className="text-lg leading-6 font-medium text-gray-900">Transaction Details</h3>
+                      <button
+                        onClick={() => setShowModal(false)}
+                        className="rounded-md text-gray-400 hover:text-gray-500 focus:outline-none"
+                      >
+                        <XMarkIcon className="h-6 w-6" />
+                      </button>
+                    </div>
+
+                    <div className="mt-4 space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Transaction ID</label>
+                        <p className="mt-1 text-sm text-gray-900">{selectedTransaction.id}</p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">User ID</label>
+                        <p className="mt-1 text-sm text-gray-900">{selectedTransaction.userId}</p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Account Number</label>
+                        <p className="mt-1 text-sm text-gray-900">{selectedTransaction.accountNumber}</p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Account Type</label>
+                        <p className="mt-1 text-sm text-gray-900">{selectedTransaction.accountType}</p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Transaction Type</label>
+                        <p className="mt-1">
+                          <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getTransactionTypeColor(selectedTransaction.transaction_type)}`}>
+                            {selectedTransaction.transaction_type?.charAt(0).toUpperCase() + selectedTransaction.transaction_type?.slice(1)}
+                          </span>
+                        </p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Amount</label>
+                        <p className="mt-1 text-sm text-gray-900">{formatCurrency(selectedTransaction.amount)}</p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Date</label>
+                        <p className="mt-1 text-sm text-gray-900">{formatDate(selectedTransaction.created_at)}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
