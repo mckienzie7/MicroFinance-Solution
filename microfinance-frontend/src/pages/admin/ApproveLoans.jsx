@@ -31,26 +31,43 @@ const ApproveLoans = () => {
       setLoading(true);
       setError('');
       
-      // Fetch real loan data from the API with admin privileges
-      const response = await api.get('/loans', {
+      // First get all accounts
+      const accountsResponse = await api.get('/accounts');
+      const accounts = accountsResponse.data;
+      
+      // Get all users
+      const usersResponse = await api.get('/users');
+      const users = usersResponse.data;
+      const userMap = new Map(users.map(user => [user.id, user]));
+      const accountMap = new Map(accounts.map(account => [account.id, account]));
+      
+      // Then get all loans
+      const loansResponse = await api.get('/loans', {
         params: { admin: "True" }
       });
       
-      if (response.data && Array.isArray(response.data)) {
+      if (loansResponse.data && Array.isArray(loansResponse.data)) {
         // Format the loan data to match our component's expected structure
-        const formattedLoans = response.data.map(loan => ({
-          id: loan.id,
-          customerId: loan.user_id,
-          customerName: loan.user?.username || 'Unknown',
-          amount: loan.amount,
-          purpose: loan.purpose,
-          creditScore: loan.credit_score || 70, // Default if not provided
-          status: loan.loan_status?.toLowerCase() || 'pending',
-          applicationDate: loan.created_at || loan.application_date,
-          documents: loan.documents || ['application.pdf'],
-          term: loan.repayment_period || 12,
-          interestRate: loan.interest_rate || '8.5'
-        }));
+        const formattedLoans = loansResponse.data.map(loan => {
+          const account = accountMap.get(loan.account_id);
+          const user = userMap.get(account?.user_id);
+          return {
+            id: loan.id,
+            customerId: account?.user_id,
+            customerName: user?.fullname || 'Unknown',
+            amount: loan.amount,
+            purpose: loan.purpose,
+            creditScore: loan.credit_score || 70, // Default if not provided
+            status: loan.loan_status?.toLowerCase() || 'pending',
+            applicationDate: loan.created_at || loan.application_date,
+            documents: loan.documents || ['application.pdf'],
+            term: loan.repayment_period || 12,
+            interestRate: loan.interest_rate || '8.5'
+          };
+        });
+        
+        // Sort loans by date (newest first)
+        formattedLoans.sort((a, b) => new Date(b.applicationDate) - new Date(a.applicationDate));
         
         // Filter loans based on selected filter
         const filteredLoans = filter === 'all' 
@@ -263,66 +280,71 @@ const ApproveLoans = () => {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Loan</th>
-                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Customer</th>
-                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Purpose</th>
-                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Date</th>
-                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                  <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Customer
+                  </th>
+                  <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Amount
+                  </th>
+                  <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Term & Rate
+                  </th>
+                  <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Date
+                  </th>
+                  <th scope="col" className="relative px-3 py-3">
+                    <span className="sr-only">Actions</span>
+                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {loans.length > 0 ? (
                   loans.map((loan) => (
-                    <tr key={loan.id} className="hover:bg-gray-50">
-                      <td className="px-3 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">{loan.id}</div>
-                        <div className="text-xs text-gray-500 sm:hidden">{loan.customerName}</div>
-                      </td>
-                      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 hidden sm:table-cell">
+                    <tr key={loan.id}>
+                      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
                         {loan.customerName}
                       </td>
                       <td className="px-3 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                         {formatCurrency(loan.amount)}
                       </td>
-                      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 hidden md:table-cell">
-                        {loan.purpose}
-                      </td>
-                      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 hidden sm:table-cell">
-                        {formatDate(loan.applicationDate)}
+                      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {loan.term}m @ {loan.interestRate}%
                       </td>
                       <td className="px-3 py-4 whitespace-nowrap">
                         <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadge(loan.status)}`}>
                           {loan.status.charAt(0).toUpperCase() + loan.status.slice(1)}
                         </span>
                       </td>
-                      <td className="px-3 py-4 whitespace-nowrap text-sm font-medium">
-                        <div className="flex space-x-1">
-                          <button 
+                      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {formatDate(loan.applicationDate)}
+                      </td>
+                      <td className="px-3 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <div className="flex items-center space-x-4">
+                          <button
                             onClick={() => {
                               setSelectedLoan(loan);
                               setShowModal(true);
                             }}
-                            className="text-blue-600 hover:text-blue-900 p-1"
-                            title="View"
+                            className="text-indigo-600 hover:text-indigo-900"
                           >
                             <EyeIcon className="h-5 w-5" />
                           </button>
-                          
                           {loan.status === 'pending' && (
                             <>
-                              <button 
+                              <button
                                 onClick={() => handleAction(loan.id, 'approved')}
-                                className="text-green-600 hover:text-green-900 p-1"
-                                title="Approve"
+                                className="text-green-600 hover:text-green-900"
+                                disabled={actionLoading}
                               >
                                 <CheckCircleIcon className="h-5 w-5" />
                               </button>
-                              <button 
+                              <button
                                 onClick={() => handleAction(loan.id, 'rejected')}
-                                className="text-red-600 hover:text-red-900 p-1"
-                                title="Reject"
+                                className="text-red-600 hover:text-red-900"
+                                disabled={actionLoading}
                               >
                                 <XCircleIcon className="h-5 w-5" />
                               </button>
@@ -334,7 +356,7 @@ const ApproveLoans = () => {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan="7" className="px-6 py-4 text-center text-sm text-gray-500">
+                    <td colSpan="6" className="px-6 py-4 text-center text-sm text-gray-500">
                       No loans found
                     </td>
                   </tr>
