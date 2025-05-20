@@ -45,36 +45,47 @@ const LoanRepayment = () => {
     setError(null);
     
     try {
-      // Get the current user's customer ID - using the same approach as in MyLoans.jsx
-      const customer = user;
-      if (!customer) {
-        setError('User profile not found. Please update your profile first.');
+      const accountsResponse = await api.get('/accounts/me');
+      const userAccounts = accountsResponse.data;
+
+      if (!userAccounts || userAccounts.length === 0) {
+        const errorMsg = 'No account found. Please create an account first.';
+        console.error(errorMsg);
+        setError(errorMsg);
         return;
       }
+
+      const userAccount = userAccounts[0];
       
-      // Use the same numeric ID approach as in MyLoans.jsx
-      const customerId = '1'; // Use a valid numeric ID that exists in the backend
-      console.log('Using numeric ID as customer ID for loan repayment:', customerId);
-      
-      // Fetch all loans
       const loansResponse = await api.get('/loans');
-      console.log('All loans fetched:', loansResponse.data);
       
-      // Filter loans for the current customer that are active (can be repaid)
-      const activeLoans = loansResponse.data.filter(loan => 
-        loan.customer_id === customerId && 
-        (loan.loan_status?.toLowerCase() === 'active' || loan.status?.toLowerCase() === 'active')
-      );
+      // Filter loans to show only those that are active/approved and have a remaining balance
+      const activeLoans = loansResponse.data.filter(loan => {
+        // Accept both 'active' and 'approved' statuses
+        const validStatus = loan.loan_status === 'active' || 
+                          loan.status === 'active' || 
+                          loan.loan_status === 'approved' || 
+                          loan.status === 'approved';
+        
+        // Ensure there's a remaining balance (default to loan amount if remaining_balance is not set)
+        const remainingBalance = Number(loan.remaining_balance || loan.amount || 0);
+        const hasBalance = remainingBalance > 0;
+        
+        return validStatus && hasBalance;
+      });
       
       // Sort by date (newest first)
       activeLoans.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
       
       setLoans(activeLoans);
       
-      // If there are loans, set the first one as selected by default
       if (activeLoans.length > 0) {
         setSelectedLoan(activeLoans[0]);
-        setPaymentForm(prev => ({ ...prev, loan_id: activeLoans[0].id }));
+        setPaymentForm(prev => ({ 
+          ...prev, 
+          loan_id: activeLoans[0].id,
+          amount: '' // Reset amount when loan changes
+        }));
       }
     } catch (err) {
       console.error('Error fetching loans:', err);
@@ -132,47 +143,76 @@ const LoanRepayment = () => {
     setSuccessMessage('');
     
     try {
-      // Format the payment data
-      const paymentData = {
-        loan_id: paymentForm.loan_id,
-        amount: parseFloat(paymentForm.amount),
-        payment_method: paymentForm.payment_method, // Required by the backend API
-        description: paymentForm.description || 'Loan repayment'
-      };
+      // Verify that the loan exists in our loans array
+      const selectedLoanExists = loans.some(loan => String(loan.id) === String(paymentForm.loan_id));
       
-      console.log('Submitting payment data:', paymentData);
-      
-      // Submit the payment to the API
-      const response = await api.post('/repayments/make-payment', paymentData);
-      
-      // Update the UI to reflect the payment
-      if (selectedLoan) {
-        const updatedLoan = {
-          ...selectedLoan,
-          remaining_balance: Math.max(0, selectedLoan.remaining_balance - parseFloat(paymentForm.amount))
-        };
-        
-        // Update the loans list
-        setLoans(prev => prev.map(loan => 
-          loan.id === updatedLoan.id ? updatedLoan : loan
-        ));
-        
-        // Update the selected loan
-        setSelectedLoan(updatedLoan);
+      if (!selectedLoanExists) {
+        console.error('Selected loan not found in loans array', {
+          selectedLoanId: paymentForm.loan_id,
+          availableLoans: loans.map(l => ({ id: l.id, status: l.loan_status }))
+        });
+        setError('The selected loan could not be found. Please select a valid loan and try again.');
+        return;
       }
       
-      // Reset form and show success message
-      setPaymentForm(prev => ({ ...prev, amount: '' }));
-      setSuccessMessage(`Payment of $${parseFloat(paymentForm.amount).toFixed(2)} successfully processed!`);
+      // Create a payment object exactly matching the backend requirements
+      const paymentData = {
+        loan_id: paymentForm.loan_id, // Send as string to avoid type conversion issues
+        amount: parseFloat(paymentForm.amount),
+        payment_method: 'bank_transfer',
+        // Include user_id which is required by the RepaymentController
+        user_id: user.id
+      };
       
-      // Refresh loans to ensure we have the latest data
-      fetchLoans();
+      // Only add description if provided (it's optional in the backend)
+      if (paymentForm.description && paymentForm.description.trim()) {
+        paymentData.description = paymentForm.description.trim();
+      }
+      
+      console.log('Submitting payment to /repayments/make-payment:', paymentData);
+      
+      // Use the endpoint from repayments.py
+      const response = await api.post('/repayments/make-payment', paymentData);
+      console.log('Payment response:', response.data);
+      
+      // If we get here, the payment was successful
+      console.log('Payment successful!');
+      
+      // Show success message
+      setSuccessMessage(`Payment of $${parseFloat(paymentForm.amount).toFixed(2)} processed successfully!`);
+      
+      // Reset the form
+      setPaymentForm(prev => ({
+        ...prev,
+        amount: '',
+        description: 'Loan repayment'
+      }));
+      
+      // Refresh the loans to get the updated balances
+      await fetchLoans();
     } catch (err) {
       console.error('Error processing payment:', err);
-      if (err.response?.data?.error) {
-        setError(`Failed to process payment: ${err.response.data.error}`);
+      
+      // Set a more descriptive error message based on the error
+      if (err.response) {
+        if (err.response.status === 500) {
+          setError('Server error: The payment could not be processed. Please try again later or contact support.');
+        } else if (err.response.status === 404) {
+          // Handle loan not found error specifically
+          if (err.response.data?.error === 'Loan not found') {
+            setError('The selected loan could not be found. It may have been fully paid or removed. Please refresh the page and try again.');
+            // Refresh the loans list to get the latest data
+            fetchLoans();
+          } else {
+            setError('Payment endpoint not found. Please contact support.');
+          }
+        } else {
+          setError(`Payment failed: ${err.response.data?.error || err.response.data?.message || 'Unknown error'}`);
+        }
+      } else if (err.request) {
+        setError('Network error: Could not connect to the server. Please check your internet connection.');
       } else {
-        setError('Failed to process payment. Please try again later.');
+        setError('An unexpected error occurred. Please try again.');
       }
     } finally {
       setIsLoading(false);
@@ -189,9 +229,9 @@ const LoanRepayment = () => {
   
   // Calculate remaining balance for a loan
   const getRemainingBalance = (loan) => {
-    return loan.remaining_balance !== undefined 
-      ? loan.remaining_balance 
-      : loan.amount - (loan.paid_amount || 0);
+    // If remaining_balance is available, use it; otherwise fall back to the full loan amount
+    const balance = loan.remaining_balance || loan.amount || 0;
+    return parseFloat(balance);
   };
   
   // Get status badge color based on loan status
@@ -212,6 +252,8 @@ const LoanRepayment = () => {
   
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+      {/* Debug panel removed for production */}
+
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-gray-900">Loan Repayment</h1>
         <button 
@@ -256,24 +298,22 @@ const LoanRepayment = () => {
                 className={`w-full px-3 py-2 border ${formErrors.loan_id ? 'border-red-300' : 'border-gray-300'} rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
               >
                 <option value="">-- Select a loan --</option>
-                {loans.map(loan => (
-                  <option key={loan.id} value={loan.id}>
-                    ${parseFloat(loan.amount).toFixed(2)} - {loan.purpose.substring(0, 30)}{loan.purpose.length > 30 ? '...' : ''}
-                  </option>
-                ))}
+                {loans && loans.length > 0 ? (
+                  loans.map(loan => (
+                    <option key={loan.id} value={loan.id}>
+                      ${parseFloat(loan.amount || 0).toFixed(2)} - {(loan.purpose || '').substring(0, 30)}{(loan.purpose || '').length > 30 ? '...' : ''}
+                    </option>
+                  ))
+                ) : (
+                  <option value="" disabled>No loans available</option>
+                )}
               </select>
               {formErrors.loan_id && (
                 <p className="mt-1 text-sm text-red-600">{formErrors.loan_id}</p>
               )}
             </div>
             
-            {selectedLoan && (
-              <div className="bg-gray-50 p-3 rounded-md">
-                <p className="text-sm text-gray-600">Remaining Balance: <span className="font-medium">${getRemainingBalance(selectedLoan).toFixed(2)}</span></p>
-                <p className="text-sm text-gray-600">Monthly Payment: <span className="font-medium">${parseFloat(selectedLoan.monthly_payment || 0).toFixed(2)}</span></p>
-                <p className="text-sm text-gray-600">Due Date: <span className="font-medium">{formatDate(selectedLoan.due_date)}</span></p>
-              </div>
-            )}
+           
             
             <div>
               <label htmlFor="amount" className="block text-sm font-medium text-gray-700 mb-1">
