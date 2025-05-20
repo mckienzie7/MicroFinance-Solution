@@ -191,7 +191,7 @@ const UserManagement = () => {
         const normalUsers = response.data.filter(user => user.admin !== true);
         const formattedUsers = normalUsers.map(user => ({
           id: user.id,
-          username: user.username || 'N/A',
+          username: user.fullname || 'N/A',
           email: user.email,
           phone_number: user.phone_number,
           is_admin: user.admin === true,
