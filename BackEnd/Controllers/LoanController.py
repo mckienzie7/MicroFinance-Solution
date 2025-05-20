@@ -11,6 +11,7 @@ from sqlalchemy.orm.exc import NoResultFound
 from BackEnd.Controllers.LoanAuthController import LoanAuthController
 from datetime import datetime, timedelta
 from typing import List, Tuple
+from BackEnd.Controllers.CreditScoringController import CreditScoringController
 
 
 class LoanController:
@@ -25,66 +26,80 @@ class LoanController:
 
     def apply_loan(self, user_id: str, amount: float, interest_rate: float,
                    repayment_period: int, purpose: str, admin_id: str) -> Loan:
-        """Create a new loan application"""
-        # Validate user_id and admin_id
-        if not user_id or user_id == 'undefined':
-            raise ValueError("Invalid user_id provided")
+        """Apply for a loan (regular user)"""
+        try:
+            # Verify user eligibility with AI credit scoring
+            credit_scoring = CreditScoringController()
+            credit_result = credit_scoring.get_user_credit_score(user_id)
             
-        if not admin_id or admin_id == 'undefined':
-            raise ValueError("Invalid admin_id provided")
+            # Check if result is an error tuple
+            if isinstance(credit_result, tuple):
+                raise ValueError(f"Credit scoring failed: {credit_result[0].get('error')}")
             
-        print(f"Processing loan for user_id: {user_id} with admin_id: {admin_id}")
-        
-        # Find the user and admin
-        customer = self.db.get(User, user_id)
-        admin = self.db.get(User, admin_id)
-        
-        if not customer:
-            raise ValueError("Customer not found")
+            credit_score = credit_result["score"]
             
-        if not admin or not admin.admin:
-            raise ValueError("Invalid admin selected")
-        
-        # Find or create an account for this user
-        all_accounts = self.db.all(Account).values()
-        account = None
-        
-        # Try to find an account for this user
-        for acc in all_accounts:
-            if acc.user_id == customer.id:
-                account = acc
-                break
-        
-        # If no account exists, create one
-        if not account:
-            account = Account(
-                user_id=customer.id,
-                account_type="savings",
-                balance=1000.0,
-                status="active"
+            # Evaluate loan risk
+            risk_result = credit_scoring.evaluate_loan_risk(user_id, amount, repayment_period)
+            
+            # Check if result is an error tuple
+            if isinstance(risk_result, tuple):
+                raise ValueError(f"Risk evaluation failed: {risk_result[0].get('error')}")
+            
+            # Check if credit score is sufficient (minimum 550)
+            if credit_score < 550:
+                raise ValueError(f"Credit score too low ({credit_score}). Minimum required: 550")
+            
+            # Check if loan amount is within recommended range
+            max_recommended = risk_result["max_recommended_amount"]
+            if amount > max_recommended:
+                raise ValueError(f"Requested amount ({amount}) exceeds maximum recommended ({max_recommended})")
+            
+            # Get the account for this user
+            user = self.db.get(User, user_id)
+            if not user:
+                raise NoResultFound("User not found")
+            
+            # Get the account (assuming one account per user)
+            account = None
+            for acc in self.db.all(Account).values():
+                if acc.user_id == user_id:
+                    account = acc
+                    break
+                
+            if not account:
+                raise NoResultFound("No account found for this user")
+            
+            # Get the admin
+            admin = self.db.get(User, admin_id)
+            if not admin or not admin.admin:
+                raise ValueError("Invalid admin ID")
+            
+            # Suggest the AI recommended interest rate if needed
+            suggested_rate = risk_result["recommended_interest_rate"]
+            if interest_rate < suggested_rate:
+                interest_rate = suggested_rate
+            
+            # Create the loan application
+            new_loan = Loan(
+                admin_id=admin_id,
+                account_id=account.id,
+                amount=amount,
+                interest_rate=interest_rate,
+                repayment_period=repayment_period,
+                purpose=purpose
             )
-            self.db.new(account)
+            
+            # Store credit score assessment with the loan
+            setattr(new_loan, '_credit_score', credit_score)
+            setattr(new_loan, '_risk_assessment', risk_result["risk_assessment"]["credit_risk"])
+            
+            self.db.new(new_loan)
             self.db.save()
-
-        # Calculate end date based on repayment period
-        start_date = datetime.now()
-        end_date = start_date + timedelta(days=repayment_period * 30)  # Assuming 30 days per month
-
-        new_loan = Loan(
-            user_id=user_id,
-            admin_id=admin_id,
-            account_id=account.id,
-            amount=amount,
-            interest_rate=interest_rate,
-            repayment_period=repayment_period,
-            purpose=purpose,
-            start_date=start_date,
-            end_date=end_date,
-            loan_status="pending"
-        )
-        self.db.new(new_loan)
-        self.db.save()
-        return new_loan
+            
+            return new_loan
+        except Exception as e:
+            self.db.rollback()
+            raise ValueError(f"Error applying for loan: {str(e)}")
 
     def approve_loan(self, loan_id: str, admin_id: str) -> Loan:
         """Approve a loan (Admin only)"""

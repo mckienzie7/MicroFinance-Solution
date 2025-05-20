@@ -8,6 +8,7 @@ from BackEnd.models.Loan import Loan
 from BackEnd.models import storage
 from BackEnd.api.v1.views import app_views
 from BackEnd.Controllers.RepaymentController import RepaymentController
+from datetime import datetime
 
 @app_views.route('/repayments', methods=['GET'], strict_slashes=False)
 @swag_from('documentation/repayment/all_repayments.yml')
@@ -68,46 +69,66 @@ def make_payment():
     
     # Extract the required fields for the controller
     loan_id = data.get('loan_id')
-    amount = float(data.get('amount'))
+    payment_amount = float(data.get('amount'))
     
-    # For testing purposes, implement a simplified payment process
     try:
         # Get the loan
         loan = storage.get(Loan, loan_id)
         if not loan:
             return make_response(jsonify({"error": "Loan not found"}), 404)
         
-        # Update the loan's remaining balance
-        if hasattr(loan, 'remaining_balance'):
-            # Convert to float to ensure proper calculation
-            current_balance = float(loan.remaining_balance or loan.amount)
-            loan.remaining_balance = max(0, current_balance - amount)
-            
-            # If fully paid, update status
-            if loan.remaining_balance <= 0:
-                loan.loan_status = "paid"
+        # Get the original loan amount (principal)
+        original_principal = float(loan.amount)
+        
+        # Get all repayments for this loan
+        repayments = [r for r in loan.repayments] if hasattr(loan, 'repayments') else []
+        total_repaid = sum(float(r.amount) for r in repayments) if repayments else 0
+        
+        # SIMPLIFIED APPROACH: Directly reduce the loan amount by the payment amount
+        # This ensures the UI always displays the updated loan amount
+        new_amount = max(0, original_principal - payment_amount)
+        
+        # Update the loan amount directly
+        loan.amount = new_amount
+        
+        # Update loan status if fully paid (amount is 0 or very close to 0)
+        if loan.amount <= 0.01:  # Allow for small rounding errors
+            loan.amount = 0
+            loan.loan_status = "paid"
         
         # Create a new repayment record
         new_repayment = Repayment(
             loan_id=loan_id,
-            amount=amount,
+            amount=payment_amount,
             payment_method=data.get('payment_method', 'bank_transfer'),
             description=data.get('description', 'Loan repayment')
         )
         
-        # Save the changes
+        # Save the new repayment and loan changes
         storage.new(new_repayment)
         storage.save()
         
-        # Return success response
+        # Log the payment details for debugging
+        print(f"=== LOAN PAYMENT PROCESSED ===")
+        print(f"Loan ID: {loan_id}")
+        print(f"Original principal: {original_principal}")
+        print(f"Payment amount: {payment_amount}")
+        print(f"New loan amount: {loan.amount}")
+        print(f"Loan status: {loan.loan_status}")
+        print(f"Total paid to date: {total_repaid + payment_amount}")
+        print(f"==============================")
+        
+        # Return success response with payment details and updated balance
         response_data = {
             "id": new_repayment.id if hasattr(new_repayment, 'id') else None,
             "loan_id": loan_id,
-            "amount": amount,
+            "amount": payment_amount,
             "payment_method": data.get('payment_method'),
             "description": data.get('description', 'Loan repayment'),
             "status": "success",
-            "remaining_balance": loan.remaining_balance if hasattr(loan, 'remaining_balance') else 0
+            "previous_amount": original_principal,
+            "updated_loan_amount": loan.amount,
+            "total_paid": total_repaid + payment_amount
         }
         
         return make_response(jsonify(response_data), 201)

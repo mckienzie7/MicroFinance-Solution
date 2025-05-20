@@ -1,0 +1,43 @@
+get:
+  tags: [loans]
+  summary: Get loan repayment schedule
+  description: Retrieves the repayment schedule for a specific loan
+  parameters:
+    - name: loan_id
+      in: path
+      required: true
+      schema:
+        type: string
+      description: The ID of the loan
+  security:
+    - BearerAuth: []
+  responses:
+    200:
+      description: Repayment schedule retrieved successfully
+      content:
+        application/json:
+          schema:
+            type: array
+            items:
+              type: object
+              properties:
+                payment_number:
+                  type: integer
+                  description: The payment number in the schedule
+                due_date:
+                  type: string
+                  format: date
+                  description: The due date for this payment
+                amount:
+                  type: number
+                  description: The payment amount
+                status:
+                  type: string
+                  description: The payment status (pending/paid)
+                remaining_balance:
+                  type: number
+                  description: The remaining balance after this payment
+    401:
+      description: Unauthorized - No valid token provided
+    404:
+      description: Loan not found 

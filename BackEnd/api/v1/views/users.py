@@ -10,6 +10,7 @@ from BackEnd.api.v1.views import app_views
 from flask import abort, jsonify, make_response, request, redirect, send_file
 from flasgger.utils import swag_from
 from BackEnd.Controllers.AuthController import AuthController
+from BackEnd.Controllers.CreditScoringController import CreditScoringController
 import os
 from werkzeug.utils import secure_filename
 import re
@@ -538,3 +539,84 @@ def get_admins():
     # Get all admin users
     admin_users = storage.session().query(User).filter(User.admin == True).all()
     return jsonify([admin.to_dict() for admin in admin_users])
+
+@app_views.route('/users/<user_id>/credit-score', methods=['GET'], strict_slashes=False)
+@swag_from('documentation/user/get_credit_score.yml')
+def get_credit_score(user_id):
+    """
+    Get credit score for a specific user
+    """
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return jsonify({"message": "No authorization token provided"}), 401
+    
+    token = auth_header.split(' ')[1]
+    auth_controller = AuthController()
+    current_user = auth_controller.get_user_from_session_id(token)
+    
+    if not current_user:
+        return jsonify({"message": "Unauthorized"}), 401
+
+    # Only allow users to access their own credit score or admins to access any score
+    if current_user.id != user_id and not current_user.admin:
+        return jsonify({"message": "Unauthorized"}), 403
+
+    controller = CreditScoringController()
+    result = controller.get_user_credit_score(user_id)
+    
+    # Check if result is an error tuple
+    if isinstance(result, tuple):
+        return make_response(jsonify(result[0]), result[1])
+    
+    return jsonify(result)
+
+
+@app_views.route('/users/<user_id>/loan-evaluation', methods=['POST'], strict_slashes=False)
+@swag_from('documentation/user/evaluate_loan.yml')
+def evaluate_loan(user_id):
+    """
+    Evaluate loan risk and eligibility for a user
+    """
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return jsonify({"message": "No authorization token provided"}), 401
+    
+    token = auth_header.split(' ')[1]
+    auth_controller = AuthController()
+    current_user = auth_controller.get_user_from_session_id(token)
+    
+    if not current_user:
+        return jsonify({"message": "Unauthorized"}), 401
+
+    # Only allow users to evaluate their own loans or admins to evaluate any loan
+    if current_user.id != user_id and not current_user.admin:
+        return jsonify({"message": "Unauthorized"}), 403
+    
+    if not request.get_json():
+        abort(400, description="Not a JSON")
+
+    data = request.get_json()
+    
+    if 'loan_amount' not in data or 'loan_period' not in data:
+        abort(400, description="Missing loan_amount or loan_period")
+    
+    try:
+        loan_amount = float(data['loan_amount'])
+        loan_period = int(data['loan_period'])
+        
+        if loan_amount <= 0:
+            return make_response(jsonify({"error": "Loan amount must be greater than 0"}), 400)
+            
+        if loan_period <= 0:
+            return make_response(jsonify({"error": "Loan period must be greater than 0"}), 400)
+        
+        controller = CreditScoringController()
+        result = controller.evaluate_loan_risk(user_id, loan_amount, loan_period)
+        
+        # Check if result is an error tuple
+        if isinstance(result, tuple):
+            return make_response(jsonify(result[0]), result[1])
+        
+        return jsonify(result)
+    except ValueError as e:
+        return make_response(jsonify({"error": str(e)}), 400)

@@ -1,0 +1,81 @@
+post:
+  tags: [users]
+  summary: Evaluate loan risk for a user
+  description: Analyzes user data and provides loan risk assessment, recommended interest rate and loan amount
+  parameters:
+    - name: user_id
+      in: path
+      required: true
+      schema:
+        type: string
+      description: The ID of the user
+  security:
+    - BearerAuth: []
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          type: object
+          required:
+            - loan_amount
+            - loan_period
+          properties:
+            loan_amount:
+              type: number
+              description: The requested loan amount
+            loan_period:
+              type: integer
+              description: The requested loan period in months
+  responses:
+    200:
+      description: Successfully evaluated loan risk
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              user_id:
+                type: string
+                description: The user ID
+              credit_score:
+                type: integer
+                description: The user's calculated credit score
+              loan_amount:
+                type: number
+                description: The requested loan amount
+              loan_period:
+                type: integer
+                description: The requested loan period in months
+              risk_assessment:
+                type: object
+                description: Assessment of loan risk factors
+                properties:
+                  credit_risk:
+                    type: string
+                    description: Risk level based on credit score
+                  affordability:
+                    type: string
+                    description: Assessment of user's ability to repay
+                  approval_odds:
+                    type: string
+                    description: Likelihood of loan approval
+                  risk_factors:
+                    type: array
+                    items:
+                      type: string
+                    description: Specific factors affecting risk
+              recommended_interest_rate:
+                type: number
+                description: AI-recommended interest rate for this loan
+              max_recommended_amount:
+                type: number
+                description: Maximum recommended loan amount for this user
+    400:
+      description: Bad request - Invalid loan parameters
+    401:
+      description: Unauthorized - No valid token provided
+    403:
+      description: Forbidden - Not authorized to evaluate loans for this user
+    404:
+      description: User not found 

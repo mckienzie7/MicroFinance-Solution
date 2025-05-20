@@ -1,0 +1,38 @@
+get:
+  tags: [users]
+  summary: Get credit score for a user
+  description: Returns the calculated credit score and factors for a specific user
+  parameters:
+    - name: user_id
+      in: path
+      required: true
+      schema:
+        type: string
+      description: The ID of the user
+  security:
+    - BearerAuth: []
+  responses:
+    200:
+      description: Successfully retrieved credit score
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              score:
+                type: integer
+                description: The credit score (300-850)
+              reason:
+                type: string
+                description: Human-readable explanation of the score
+              factors:
+                type: object
+                description: Detailed information about score components
+    400:
+      description: Bad request - Client error
+    401:
+      description: Unauthorized - No valid token provided
+    403:
+      description: Forbidden - Not authorized to access this user's credit score
+    404:
+      description: User not found 

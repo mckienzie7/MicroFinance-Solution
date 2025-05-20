@@ -1,0 +1,52 @@
+post:
+  tags: [loans]
+  summary: Make a loan payment
+  description: Processes a payment for a specific loan
+  parameters:
+    - name: loan_id
+      in: path
+      required: true
+      schema:
+        type: string
+      description: The ID of the loan
+  security:
+    - BearerAuth: []
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          type: object
+          required:
+            - amount
+          properties:
+            amount:
+              type: number
+              description: The payment amount
+  responses:
+    201:
+      description: Payment processed successfully
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              id:
+                type: string
+                description: The ID of the repayment
+              loan_id:
+                type: string
+                description: The ID of the loan
+              amount:
+                type: number
+                description: The payment amount
+              payment_date:
+                type: string
+                format: date-time
+                description: The date and time of the payment
+    400:
+      description: Invalid request - Missing or invalid amount
+    401:
+      description: Unauthorized - No valid token provided
+    404:
+      description: Loan not found 
