@@ -9,6 +9,7 @@ from BackEnd.api.v1.views import app_views
 from BackEnd.Controllers.LoanController import LoanController
 from BackEnd.Controllers.AuthController import AuthController
 from BackEnd.models.Account import Account
+from sqlalchemy.orm.exc import NoResultFound
 
 @app_views.route('/loans', methods=['GET'], strict_slashes=False)
 @swag_from('documentation/loan/all_loans.yml')
@@ -186,9 +187,18 @@ def approve_loan(loan_id):
     controller = LoanController()
     try:
         loan = controller.approve_loan(loan_id, user.id)
-        return make_response(jsonify(loan.to_dict()), 200)
+        
+        # Get the repayment schedule
+        schedule = controller.get_loan_repayment_schedule(loan_id)
+        
+        response = loan.to_dict()
+        response['repayment_schedule'] = schedule
+        
+        return make_response(jsonify(response), 200)
     except ValueError as e:
         return make_response(jsonify({"error": str(e)}), 400)
+    except NoResultFound as e:
+        return make_response(jsonify({"error": str(e)}), 404)
 
 @app_views.route('/loans/<loan_id>/reject', methods=['POST'], strict_slashes=False)
 @swag_from('documentation/loan/reject_loan.yml')
@@ -220,6 +230,8 @@ def reject_loan(loan_id):
         return make_response(jsonify(loan.to_dict()), 200)
     except ValueError as e:
         return make_response(jsonify({"error": str(e)}), 400)
+    except NoResultFound as e:
+        return make_response(jsonify({"error": str(e)}), 404)
 
 @app_views.route('/loans/<loan_id>/repayments', methods=['GET'], strict_slashes=False)
 @swag_from('documentation/loan/get_loan_repayments.yml')
