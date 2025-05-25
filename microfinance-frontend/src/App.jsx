@@ -17,6 +17,8 @@ import ErrorBoundary from './components/common/ErrorBoundary';
 import LandingPage from './components/common/LandingPage';
 // Auth Components
 import Login from './components/auth/Login';
+import ForgotPassword from './components/auth/ForgotPassword';
+import ResetPassword from './components/auth/ResetPassword';
 // Layouts
 import MainLayout from './layouts/MainLayout';
 import ProtectedRoute from './components/common/ProtectedRoute';
@@ -32,22 +34,23 @@ import Profile from './pages/user/Profile';
 import UserLayout from './layouts/UserLayout';
 
 function App() {
-  
-
-  
-
   return (
     <AuthProvider>
       <ErrorBoundary>
         <Router>
           <Routes>
             {/* Public Routes with MainLayout */}
-            <Route element={<MainLayout />}>
-              <Route path="/" element={<LandingPage />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/register" element={<Register />} />
-              <Route path="/dev-login" element={<DevLogin />} />
-              {/* Add more public routes here */}
+            <Route element={<ProtectedRoute isPublic={true} />}>
+              <Route element={<MainLayout />}>
+                <Route path="/" element={<LandingPage />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/register" element={<Register />} />
+                <Route path="/forgot-password" element={<ForgotPassword />} />
+                <Route path="/reset-password" element={<ResetPassword />} />
+                {process.env.NODE_ENV === 'development' && (
+                  <Route path="/dev-login" element={<DevLogin />} />
+                )}
+              </Route>
             </Route>
 
             {/* Admin Routes */}
@@ -61,7 +64,7 @@ function App() {
                 <Route path="company-balance" element={<CompanyBalance />} />
                 <Route path="reports" element={<Reports />} />
                 <Route path="settings" element={<Settings />} />
-                <Route index element={<Navigate to="dashboard" />} />
+                <Route index element={<Navigate to="dashboard" replace />} />
               </Route>
             </Route>
 
@@ -75,12 +78,14 @@ function App() {
                 <Route path="pay-loan" element={<LoanRepayment />} />
                 <Route path="credit-score" element={<CreditScore />} />
                 <Route path="profile" element={<Profile />} />
-                <Route index element={<Navigate to="dashboard" />} />
+                <Route index element={<Navigate to="dashboard" replace />} />
               </Route>
             </Route>
 
-            {/* Catch all - 404 */}
-            <Route path="*" element={<Navigate to="/login" replace />} />
+            {/* Catch all - redirect to login for unauthenticated users */}
+            <Route path="*" element={
+              <Navigate to="/login" replace state={{ error: 'Page not found' }} />
+            } />
           </Routes>
         </Router>
       </ErrorBoundary>
