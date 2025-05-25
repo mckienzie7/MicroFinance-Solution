@@ -35,7 +35,7 @@ const AdminLayout = () => {
     { name: 'Savings Control', href: '/admin/savings', icon: BanknotesIcon },
     { name: 'Loan Applications', href: '/admin/approve-loans', icon: CreditCardIcon },
     { name: 'Company Balance', href: '/admin/company-balance', icon: ChartBarIcon },
-    { name: 'Reports', href: '/admin/reports', icon: ChartBarIcon },
+    { name: 'Reports', href: '/admin/reports', icon: DocumentTextIcon },
     { name: 'Settings', href: '/admin/settings', icon: CogIcon },
   ];
 
