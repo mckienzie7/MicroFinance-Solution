@@ -6,7 +6,8 @@ import {
   ExclamationTriangleIcon,
   MagnifyingGlassIcon,
   EyeIcon,
-  XMarkIcon
+  XMarkIcon,
+  DocumentTextIcon
 } from '@heroicons/react/24/outline';
 import api from '../../services/api';
 
@@ -19,12 +20,14 @@ const UserDetailModal = ({ user, onClose, onDelete }) => {
   useEffect(() => {
     const fetchUserProfile = async () => {
       try {
-        const response = await api.get(`/users/${user.id}/profile`, {
+        const response = await api.get(`/api/v1/users/${user.id}/profile`, {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`,
             'Content-Type': 'application/json'
           }
         });
+        console.log('User profile response:', response.data);
+        console.log('Fayda document URL:', response.data.fayda_document_url);
         setUserProfile(response.data);
       } catch (err) {
         console.error('Error fetching user profile:', err);
@@ -40,6 +43,7 @@ const UserDetailModal = ({ user, onClose, onDelete }) => {
   }, [user]);
 
   const openImageView = (imageUrl, title) => {
+    console.log('Opening image view with URL:', imageUrl);
     setImageView({ url: imageUrl, title });
   };
 
@@ -110,13 +114,28 @@ const UserDetailModal = ({ user, onClose, onDelete }) => {
                 <p className="text-sm font-medium text-gray-500">ID Document</p>
                 <div 
                   className="relative h-48 bg-gray-100 rounded-lg overflow-hidden cursor-pointer hover:opacity-90 transition-opacity"
-                  onClick={() => openImageView(userProfile.fayda_document_url, 'ID Document')}
+                  onClick={() => {
+                    const fileUrl = `${api.defaults.baseURL}/api/v1/users/${user.id}/fayda-document/download`;
+                    console.log('Opening document URL:', fileUrl);
+                    window.open(fileUrl, '_blank');
+                  }}
                 >
-                  <img 
-                    src={userProfile.fayda_document_url} 
-                    alt="ID Document" 
-                    className="w-full h-full object-cover"
-                  />
+                  {userProfile.fayda_document_url.toLowerCase().endsWith('.pdf') ? (
+                    <div className="flex flex-col items-center justify-center h-full">
+                      <DocumentTextIcon className="h-16 w-16 text-gray-400" />
+                      <p className="text-sm text-gray-500 mt-2">Click to view PDF</p>
+                    </div>
+                  ) : (
+                    <img 
+                      src={`${api.defaults.baseURL}/api/v1/users/${user.id}/fayda-document/download`}
+                      alt="ID Document" 
+                      className="w-full h-full object-contain"
+                      onError={(e) => {
+                        console.error('Error loading image:', e);
+                        e.target.src = '/placeholder-id.png';
+                      }}
+                    />
+                  )}
                   <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-0 hover:bg-opacity-30 transition-all">
                     <EyeIcon className="h-8 w-8 text-white opacity-0 hover:opacity-100" />
                   </div>
@@ -161,7 +180,7 @@ const UserManagement = () => {
   // Verify API endpoints are available
   const verifyApiEndpoints = async () => {
     try {
-      await api.get('/users');
+      await api.get('/api/v1/users');
       return true;
     } catch (err) {
       console.error('API verification failed:', err);
@@ -179,10 +198,10 @@ const UserManagement = () => {
     setError(null);
     
     try {
-      const response = await api.get('/users', {
+      const response = await api.get('/api/v1/users', {
         params: { admin: true },
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': `Bearer ${localStorage.getItem('session_id')}`,
           'Content-Type': 'application/json'
         }
       });
@@ -197,7 +216,6 @@ const UserManagement = () => {
           is_admin: user.admin === true,
           is_active: user.is_verified === true,
           created_at: user.created_at || new Date().toISOString()
-          
         }));
         
         setUsers(formattedUsers);

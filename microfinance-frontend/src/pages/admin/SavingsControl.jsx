@@ -29,11 +29,21 @@ const SavingsControl = () => {
       setError('');
       
       // First get all accounts
-      const accountsResponse = await api.get('/accounts');
+      const accountsResponse = await api.get('/api/v1/accounts', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('session_id')}`,
+          'Content-Type': 'application/json'
+        }
+      });
       const accounts = accountsResponse.data;
       
       // Get all users first
-      const usersResponse = await api.get('/users');
+      const usersResponse = await api.get('/api/v1/users', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('session_id')}`,
+          'Content-Type': 'application/json'
+        }
+      });
       const users = usersResponse.data;
       const userMap = new Map(users.map(user => [user.id, user]));
       
@@ -41,7 +51,12 @@ const SavingsControl = () => {
       const allTransactions = [];
       for (const account of accounts) {
         try {
-          const transactionsResponse = await api.get(`/accounts/${account.id}/transactions`);
+          const transactionsResponse = await api.get(`/api/v1/accounts/${account.id}/transactions`, {
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('session_id')}`,
+              'Content-Type': 'application/json'
+            }
+          });
           const accountTransactions = transactionsResponse.data.map(transaction => {
             const user = userMap.get(account.user_id);
             return {

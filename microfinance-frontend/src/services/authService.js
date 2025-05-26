@@ -107,7 +107,7 @@ const authService = {
       }
 
       // Send the request
-      const response = await api.post('/users/register', payload, {
+      const response = await api.post('/api/v1/users/register', payload, {
         headers: isMultipart ? {
           'Content-Type': 'multipart/form-data'
         } : {
@@ -164,7 +164,7 @@ const authService = {
     try {
       console.log('Submitting login form with:', credentials);
       console.log('Submitting login form with:', credentials);
-      const response = await api.post('/users/login', credentials);
+      const response = await api.post('/api/v1/users/login', credentials);
       console.log('Login response:', response);
       
       // Extract user data from the response
@@ -246,7 +246,7 @@ const authService = {
   // Logout user
   logout: async () => {
     try {
-      await api.delete('/users/logout');
+      await api.delete('/api/v1/users/logout');
       secureStorage.clearUser();
       secureStorage.clearSessionId();
       secureStorage.clearSessionId();
@@ -353,7 +353,7 @@ const authService = {
   // Request password reset
   requestPasswordReset: async (email) => {
     try {
-      const response = await api.post('/users/forgot-password', { email });
+      const response = await api.post('/api/v1/users/forgot-password', { email });
       return response.data;
     } catch (error) {
       console.error('Password reset request error:', error);
@@ -364,7 +364,7 @@ const authService = {
   // Reset password with token
   resetPassword: async (token, newPassword) => {
     try {
-      const response = await api.post('/users/reset-password', { 
+      const response = await api.post('/api/v1/users/reset-password', { 
         reset_token: token, 
         password: newPassword 
       });
@@ -378,7 +378,7 @@ const authService = {
   // Request password reset
   requestPasswordReset: async (email) => {
     try {
-      const response = await api.post('/users/forgot-password', { email });
+      const response = await api.post('/api/v1/users/forgot-password', { email });
       return response.data;
     } catch (error) {
       console.error('Password reset request error:', error);
@@ -389,7 +389,7 @@ const authService = {
   // Reset password with token
   resetPassword: async (token, newPassword) => {
     try {
-      const response = await api.post('/users/reset-password', { 
+      const response = await api.post('/api/v1/users/reset-password', { 
         reset_token: token, 
         password: newPassword 
       });

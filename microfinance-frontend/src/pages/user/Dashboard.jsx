@@ -11,7 +11,14 @@ import {
   StarIcon,
   ArrowTrendingUpIcon,
   ArrowPathIcon,
-  ExclamationTriangleIcon
+  ExclamationTriangleIcon,
+  BellIcon,
+  PlusIcon,
+  ArrowUpIcon,
+  ArrowDownIcon,
+  ClockIcon,
+  CheckCircleIcon,
+  XCircleIcon
 } from '@heroicons/react/24/outline';
 
 const Dashboard = () => {
@@ -27,7 +34,6 @@ const Dashboard = () => {
   const [dashboardData, setDashboardData] = useState({
     balance: {
       current: 0,
-     
       currency: 'ETB'
     },
     loanProgress: {
@@ -37,62 +43,64 @@ const Dashboard = () => {
       progressPercentage: 0,
       nextPaymentDate: null,
       nextPaymentAmount: 0,
-      status: 'none' // 'none', 'active', 'completed', 'overdue'
+      status: 'none', // 'none', 'active', 'completed', 'overdue'
+      repaymentGoal: {
+        monthlyTarget: 0,
+        currentMonthPaid: 0,
+        monthlyProgress: 0,
+        nextTargetDate: null
+      }
     },
     creditScore: {
       score: 0,
       maxScore: 100,
       category: 'No Data' // 'Poor', 'Fair', 'Good', 'Excellent'
-    }
+    },
+    recentActivity: [],
+    savingsGoal: {
+      target: 10000,
+      current: 0,
+      progress: 0
+    },
+    notifications: []
   });
 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [showNotifications, setShowNotifications] = useState(false);
 
-  // Fetch dashboard data on component mount or when auth state changes
-  useEffect(() => {
-    // Reset state on user change
-    setDashboardData({
-      balance: {
-        current: 0,
-        currency: 'ETB'
-      },
-      loanProgress: {
-        totalAmount: 0,
-        amountPaid: 0,
-        remainingAmount: 0,
-        progressPercentage: 0,
-        nextPaymentDate: null,
-        nextPaymentAmount: 0,
-        status: 'none'
-      },
-      creditScore: {
-        score: 0,
-        maxScore: 100,
-        category: 'No Data'
-      }
-    });
-    setError(null);
-    setIsLoading(true); // Set loading to true when user changes
-    
-    // Clear any previous data first
-    console.log('User changed, refreshing dashboard data for:', user?.username);
-    
-    if (isAuthenticated && user) {
-      // Add a small delay to ensure any previous session data is cleared
-      setTimeout(() => {
-        fetchUserDashboardData();
-      }, 100);
-    } else {
-      setIsLoading(false);
+  // Quick Actions
+  const quickActions = [
+    {
+      title: 'Deposit Savings',
+      icon: PlusIcon,
+      link: '/user/savings',
+      color: 'bg-green-100 text-green-600'
+    },
+    {
+      title: 'Apply for Loan',
+      icon: CreditCardIcon,
+      link: '/user/loans',
+      color: 'bg-blue-100 text-blue-600'
+    },
+    {
+      title: 'Make Payment',
+      icon: BanknotesIcon,
+      link: '/user/pay-loan',
+      color: 'bg-purple-100 text-purple-600'
+    },
+    {
+      title: 'View Credit Score',
+      icon: StarIcon,
+      link: '/user/credit-score',
+      color: 'bg-yellow-100 text-yellow-600'
     }
-  }, [isAuthenticated, user?.id]); // Use user.id as dependency to detect actual user changes
+  ];
 
   // Verify API endpoints are available
   const verifyApiEndpoints = async () => {
     try {
-      // Use the /status endpoint which is public and doesn't require authentication
-      await api.get('/status', {
+      await api.get('/api/v1/status', {
         headers: {
           'Accept': 'application/json',
           'Content-Type': 'application/json'
@@ -106,55 +114,10 @@ const Dashboard = () => {
     }
   };
 
-  // Fetch with retry for critical API calls
-  const fetchWithRetry = async (url, options = {}, retries = 2) => {
-    try {
-      // Ensure headers are included in the request
-      const requestOptions = {
-        ...options,
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-          ...(options.headers || {})
-        }
-      };
-      return await api.get(url, requestOptions);
-    } catch (err) {
-      if (retries > 0) {
-        console.log(`Retrying ${url}, ${retries} attempts left`);
-        await new Promise(r => setTimeout(r, 1000));
-        return fetchWithRetry(url, options, retries - 1);
-      }
-      throw err;
-    }
-  };
-
-  // Fetch dashboard data from API
+  // Fetch user data and dashboard information
   const fetchUserDashboardData = async () => {
     setIsLoading(true);
     setError(null);
-    
-    // Reset dashboard data before fetching new data
-    setDashboardData({
-      balance: {
-        current: 0,
-        currency: 'ETB'
-      },
-      loanProgress: {
-        totalAmount: 0,
-        amountPaid: 0,
-        remainingAmount: 0,
-        progressPercentage: 0,
-        nextPaymentDate: null,
-        nextPaymentAmount: 0,
-        status: 'none'
-      },
-      creditScore: {
-        score: 0,
-        maxScore: 100,
-        category: 'No Data'
-      }
-    });
     
     try {
       // Verify API is available
@@ -172,64 +135,33 @@ const Dashboard = () => {
       
       console.log('Fetching dashboard data for user:', customer.username, 'with ID:', customer.id);
       
-      // Define headers for all API requests to avoid 415 errors
+      // Define headers for all API requests
       const headers = {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('session_id')}` // Add authorization token
+        'Authorization': `Bearer ${localStorage.getItem('session_id')}`
       };
       
       // Add timestamp to prevent caching
       const timestamp = Date.now();
       
-      // Fetch user's accounts using the new /accounts/me endpoint
-      console.log('Fetching user accounts');
-      const accountsResponse = await api.get('/accounts/me', { headers });
+      // Fetch user's accounts
+      const accountsResponse = await api.get('/api/v1/accounts/me', { headers });
       const userAccounts = accountsResponse.data || [];
       
-      console.log('User accounts:', userAccounts);
-      
-      // Find savings account from the filtered accounts
+      // Find savings account
       const savingsAccount = userAccounts.find(account => account.account_type === 'savings') || userAccounts[0];
       const savingsBalance = savingsAccount ? parseFloat(savingsAccount.balance || 0) : 0;
-      console.log('Current user savings balance:', savingsBalance, 'Account:', savingsAccount);
       
-      // Get loans for loan progress - using simple approach
-      const loansResponse = await api.get('/loans', { headers });
+      // Get loans for loan progress
+      const loansResponse = await api.get('/api/v1/loans', { headers });
       const loans = loansResponse.data || [];
       
-      // We don't need transactions for the dashboard view
-      let transactions = [];
+      // Get recent transactions
+      const transactionsResponse = await api.get(`/api/v1/transactions/account/${savingsAccount?.id}`, { headers });
+      const recentTransactions = transactionsResponse.data || [];
       
-      // 1. Set Balance to savings account only
-      const totalBalance = savingsBalance;
-      
-      // Force a complete reset of dashboard data to ensure we don't have stale data
-      setDashboardData({
-        balance: {
-          current: totalBalance,
-          currency: 'ETB'
-        },
-        loanProgress: {
-          totalAmount: 0,
-          amountPaid: 0,
-          remainingAmount: 0,
-          progressPercentage: 0,
-          nextPaymentDate: null,
-          nextPaymentAmount: 0,
-          status: 'none'
-        },
-        creditScore: {
-          score: 0,
-          maxScore: 100,
-          category: 'No Data'
-        }
-      });
-      
-      // Then update with the current balance data
-      console.log('Setting dashboard balance to:', totalBalance, 'for user:', customer.username);
-      
-      // 2. Calculate Loan Progress
+      // Calculate loan progress
       const activeLoans = loans.filter(loan => loan.status === 'approved');
       let loanProgress = {
         totalAmount: 0,
@@ -238,86 +170,106 @@ const Dashboard = () => {
         progressPercentage: 0,
         nextPaymentDate: null,
         nextPaymentAmount: 0,
-        status: 'none'
-      };
-      
-      if (activeLoans.length > 0) {
-        const currentLoan = activeLoans[0]; // Focus on the most recent active loan
-        const loanAmount = parseFloat(currentLoan.amount);
-        
-        // Calculate repayments made for this loan
-        const loanRepayments = transactions.filter(t => 
-          (t.transaction_type === 'payment' || t.description?.toLowerCase().includes('repayment')) &&
-          t.reference_id === currentLoan.id
-        );
-        
-        const amountPaid = loanRepayments.reduce((sum, t) => sum + parseFloat(t.amount), 0);
-        const remainingAmount = Math.max(0, loanAmount - amountPaid);
-        const progressPercentage = Math.min(100, Math.round((amountPaid / loanAmount) * 100));
-        
-        // Calculate next payment
-        const nextDueDate = new Date();
-        nextDueDate.setDate(nextDueDate.getDate() + 15); // Assuming payment due in 15 days
-        
-        // Determine loan status
-        let status = 'active';
-        if (progressPercentage >= 100) {
-          status = 'completed';
-        } else if (currentLoan.status === 'overdue') {
-          status = 'overdue';
+        status: 'none',
+        repaymentGoal: {
+          monthlyTarget: 0,
+          currentMonthPaid: 0,
+          monthlyProgress: 0,
+          nextTargetDate: null
         }
+      };
+
+      if (activeLoans.length > 0) {
+        const latestLoan = activeLoans[activeLoans.length - 1];
+        const monthlyPayment = parseFloat(latestLoan.monthly_payment || 0);
+        
+        // Calculate current month's repayment progress
+        const today = new Date();
+        const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+        const currentMonthPayments = recentTransactions
+          .filter(tx => 
+            tx.transaction_type === 'payment' && 
+            new Date(tx.created_at) >= startOfMonth
+          )
+          .reduce((sum, tx) => sum + parseFloat(tx.amount), 0);
+
+        // Calculate next target date
+        const nextTargetDate = new Date(today.getFullYear(), today.getMonth() + 1, 1);
         
         loanProgress = {
-          totalAmount: loanAmount,
-          amountPaid,
-          remainingAmount,
-          progressPercentage,
-          nextPaymentDate: nextDueDate,
-          nextPaymentAmount: currentLoan.monthly_payment || (loanAmount / 12), // Estimated monthly payment
-          status
+          totalAmount: parseFloat(latestLoan.amount),
+          amountPaid: parseFloat(latestLoan.amount_paid || 0),
+          remainingAmount: parseFloat(latestLoan.amount) - parseFloat(latestLoan.amount_paid || 0),
+          progressPercentage: Math.round((parseFloat(latestLoan.amount_paid || 0) / parseFloat(latestLoan.amount)) * 100),
+          nextPaymentDate: latestLoan.next_payment_date,
+          nextPaymentAmount: monthlyPayment,
+          status: latestLoan.status,
+          repaymentGoal: {
+            monthlyTarget: monthlyPayment,
+            currentMonthPaid: currentMonthPayments,
+            monthlyProgress: Math.min(100, Math.round((currentMonthPayments / monthlyPayment) * 100)),
+            nextTargetDate: nextTargetDate
+          }
         };
       }
+
+      // Generate notifications
+      const notifications = [];
       
-      // Update dashboard data with loan progress
-      setDashboardData(prevData => ({
-        ...prevData,
-        loanProgress
-      }));
-      
-      // 3. Get credit score data (if available)
-      try {
-        const creditResponse = await api.get('/credit-score', { headers });
-        if (creditResponse.data) {
-          const creditData = creditResponse.data;
-          
-          // Determine credit score category
-          let category = 'No Data';
-          const score = parseInt(creditData.score) || 0;
-          
-          if (score >= 80) category = 'Excellent';
-          else if (score >= 70) category = 'Good';
-          else if (score >= 60) category = 'Fair';
-          else if (score > 0) category = 'Poor';
-          
-          // Update credit score data
-          setDashboardData(prevData => ({
-            ...prevData,
-            creditScore: {
-              score: score,
-              maxScore: 100,
-              category: category
-            }
-          }));
+      // Add loan payment notifications
+      if (loanProgress.status === 'active' && loanProgress.nextPaymentDate) {
+        const daysUntilPayment = Math.ceil((new Date(loanProgress.nextPaymentDate) - new Date()) / (1000 * 60 * 60 * 24));
+        if (daysUntilPayment <= 7) {
+          notifications.push({
+            type: 'warning',
+            message: `Loan payment of ETB ${loanProgress.nextPaymentAmount} due in ${daysUntilPayment} days`,
+            date: loanProgress.nextPaymentDate
+          });
         }
-      } catch (err) {
-        console.log('Credit score data not available:', err);
-        // Continue without credit score data
       }
-      
+
+      // Add savings goal notifications
+      const savingsGoal = {
+        target: 10000, // Example target
+        current: savingsBalance,
+        progress: Math.round((savingsBalance / 10000) * 100)
+      };
+
+      if (savingsGoal.progress >= 90) {
+        notifications.push({
+          type: 'success',
+          message: 'You\'re close to reaching your savings goal!',
+          date: new Date()
+        });
+      }
+
+      // Update dashboard data
+      setDashboardData({
+        balance: {
+          current: savingsBalance,
+          currency: 'ETB'
+        },
+        loanProgress,
+        creditScore: {
+          score: 750, // Example score
+          maxScore: 1000,
+          category: 'Good'
+        },
+        recentActivity: recentTransactions.slice(0, 5).map(tx => ({
+          id: tx.id,
+          type: tx.transaction_type,
+          amount: parseFloat(tx.amount),
+          description: tx.description,
+          date: tx.created_at,
+          status: tx.status
+        })),
+        savingsGoal,
+        notifications
+      });
+
     } catch (err) {
       console.error('Error fetching dashboard data:', err);
       if (err.response) {
-        // Handle specific HTTP error responses
         switch (err.response.status) {
           case 404:
             setError('API endpoint not found. Please ensure the backend server is properly configured.');
@@ -333,10 +285,8 @@ const Dashboard = () => {
             setError(`Failed to load dashboard data: ${err.response.data?.error || 'Unknown error'}`);
         }
       } else if (err.request) {
-        // Request was made but no response received
         setError('No response from server. Please check your network connection.');
       } else {
-        // Something else caused the error
         setError('Failed to load dashboard data. Please try again later.');
       }
     } finally {
@@ -344,12 +294,29 @@ const Dashboard = () => {
     }
   };
 
-  // Fetch user data and dashboard information
+  // Fetch data on mount and auth state change
   useEffect(() => {
     if (isAuthenticated && user) {
       fetchUserDashboardData();
     }
   }, [isAuthenticated, user]);
+
+  // Format currency
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('en-ET', {
+      style: 'currency',
+      currency: 'ETB'
+    }).format(amount);
+  };
+
+  // Format date
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
 
   // Balance Card Component
   const BalanceCard = () => {
@@ -367,13 +334,29 @@ const Dashboard = () => {
           
           <div className="space-y-3">
             <div>
-              <p className="text-sm text-gray-500">Current Savings Balance</p>
+              <p className="text-sm text-gray-500">Current Balance</p>
               <p className="text-3xl font-bold text-gray-900">
                 {currency} {current.toLocaleString()}
               </p>
             </div>
             
-            
+            <div className="pt-4 border-t border-gray-100">
+              <div className="flex justify-between items-center">
+                <div>
+                  <p className="text-sm text-gray-500">Savings Goal</p>
+                  <p className="text-lg font-semibold text-gray-700">
+                    {dashboardData.savingsGoal.progress}% Complete
+                  </p>
+                </div>
+                <ArrowTrendingUpIcon className="h-5 w-5 text-green-500" />
+              </div>
+              <div className="mt-2 h-2 w-full bg-gray-200 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-blue-500 rounded-full"
+                  style={{ width: `${dashboardData.savingsGoal.progress}%` }}
+                />
+              </div>
+            </div>
           </div>
           
           <div className="mt-6 pt-4 border-t border-gray-100">
@@ -396,7 +379,6 @@ const Dashboard = () => {
   const CreditScoreCard = () => {
     const { score, maxScore, category } = dashboardData.creditScore;
     
-    // Determine color based on score category
     const getScoreColor = () => {
       switch(category) {
         case 'Excellent': return 'text-green-500';
@@ -407,7 +389,6 @@ const Dashboard = () => {
       }
     };
     
-    // Calculate percentage for progress bar
     const percentage = Math.round((score / maxScore) * 100);
     
     return (
@@ -420,55 +401,30 @@ const Dashboard = () => {
             </div>
           </div>
           
-          <div className="flex flex-col items-center justify-center py-4">
-            <div className="relative h-36 w-36 flex items-center justify-center">
-              {/* Circular background */}
-              <div className="absolute inset-0 rounded-full bg-gray-100"></div>
-              
-              {/* Progress circle with stroke dasharray trick */}
-              <svg className="absolute inset-0 h-full w-full" viewBox="0 0 100 100">
-                <circle 
-                  className="text-gray-200" 
-                  strokeWidth="10"
-                  stroke="currentColor" 
-                  fill="transparent" 
-                  r="40" 
-                  cx="50" 
-                  cy="50" 
-                />
-                <circle 
-                  className={getScoreColor()} 
-                  strokeWidth="10" 
-                  strokeDasharray={`${percentage * 2.51} 1000`}
-                  strokeLinecap="round" 
-                  stroke="currentColor" 
-                  fill="transparent" 
-                  r="40" 
-                  cx="50" 
-                  cy="50" 
-                />
-              </svg>
-              
-              {/* Score text */}
-              <div className="relative flex flex-col items-center justify-center">
-                <span className="text-3xl font-bold">{score}</span>
-                <span className="text-sm text-gray-500">{category}</span>
+          <div className="text-center mb-4">
+            <div className="inline-flex items-center justify-center w-32 h-32 rounded-full border-8 border-gray-200">
+              <div className="text-center">
+                <p className={`text-3xl font-bold ${getScoreColor()}`}>{score}</p>
+                <p className="text-sm text-gray-500">{category}</p>
               </div>
             </div>
           </div>
           
           <div className="mt-4">
+            <div className="flex justify-between text-sm text-gray-500 mb-1">
+              <span>Score Range</span>
+              <span>{percentage}%</span>
+            </div>
             <div className="h-2 w-full bg-gray-200 rounded-full overflow-hidden">
               <div 
-                className={`h-full ${getScoreColor().replace('text-', 'bg-')}`} 
+                className={`h-full rounded-full ${
+                  category === 'Excellent' ? 'bg-green-500' :
+                  category === 'Good' ? 'bg-blue-500' :
+                  category === 'Fair' ? 'bg-yellow-500' :
+                  'bg-red-500'
+                }`}
                 style={{ width: `${percentage}%` }}
               />
-            </div>
-            <div className="mt-2 flex justify-between text-xs text-gray-500">
-              <span>Poor</span>
-              <span>Fair</span>
-              <span>Good</span>
-              <span>Excellent</span>
             </div>
           </div>
           
@@ -477,7 +433,7 @@ const Dashboard = () => {
               to="/user/credit-score"
               className="text-sm font-medium text-blue-600 hover:text-blue-800 flex items-center"
             >
-              View credit details
+              View detailed report
               <svg className="ml-1 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
@@ -487,7 +443,7 @@ const Dashboard = () => {
       </div>
     );
   };
-  
+
   // Loan Progress Card Component
   const LoanProgressCard = () => {
     const { 
@@ -497,18 +453,13 @@ const Dashboard = () => {
       progressPercentage, 
       nextPaymentDate, 
       nextPaymentAmount,
-      status 
+      status,
+      repaymentGoal
     } = dashboardData.loanProgress;
     
-    // Format date
     const formattedDate = nextPaymentDate ? 
-      new Date(nextPaymentDate).toLocaleDateString('en-US', { 
-        year: 'numeric', 
-        month: 'short', 
-        day: 'numeric' 
-      }) : 'N/A';
+      formatDate(nextPaymentDate) : 'N/A';
     
-    // Status badge color
     const getStatusColor = () => {
       switch(status) {
         case 'active': return 'bg-blue-100 text-blue-800';
@@ -518,7 +469,6 @@ const Dashboard = () => {
       }
     };
     
-    // Status display text
     const getStatusText = () => {
       switch(status) {
         case 'active': return 'Active';
@@ -527,6 +477,14 @@ const Dashboard = () => {
         case 'none': return 'No Active Loans';
         default: return status;
       }
+    };
+
+    const getMonthlyProgressColor = () => {
+      const progress = repaymentGoal.monthlyProgress;
+      if (progress >= 100) return 'bg-green-500';
+      if (progress >= 75) return 'bg-blue-500';
+      if (progress >= 50) return 'bg-yellow-500';
+      return 'bg-red-500';
     };
     
     return (
@@ -564,7 +522,7 @@ const Dashboard = () => {
               
               <div className="mt-4 mb-6">
                 <div className="flex justify-between text-sm text-gray-500 mb-1">
-                  <span>Progress</span>
+                  <span>Overall Progress</span>
                   <span>{progressPercentage}%</span>
                 </div>
                 <div className="h-2 w-full bg-gray-200 rounded-full overflow-hidden">
@@ -572,6 +530,35 @@ const Dashboard = () => {
                     className={`h-full ${status === 'overdue' ? 'bg-red-500' : 'bg-blue-500'} rounded-full`} 
                     style={{ width: `${progressPercentage}%` }}
                   />
+                </div>
+              </div>
+
+              {/* Monthly Repayment Goal */}
+              <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+                <div className="flex justify-between items-center mb-2">
+                  <h4 className="text-sm font-medium text-gray-700">Monthly Repayment Goal</h4>
+                  <span className="text-xs text-gray-500">
+                    Target: ETB {repaymentGoal.monthlyTarget.toLocaleString()}
+                  </span>
+                </div>
+                <div className="space-y-2">
+                  <div className="h-2 w-full bg-gray-200 rounded-full overflow-hidden">
+                    <div 
+                      className={`h-full ${getMonthlyProgressColor()} rounded-full`}
+                      style={{ width: `${repaymentGoal.monthlyProgress}%` }}
+                    />
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-gray-600">
+                      Paid: ETB {repaymentGoal.currentMonthPaid.toLocaleString()}
+                    </span>
+                    <span className="text-gray-600">
+                      {repaymentGoal.monthlyProgress}% of monthly goal
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Next target date: {formatDate(repaymentGoal.nextTargetDate)}
+                  </p>
                 </div>
               </div>
               
@@ -622,32 +609,150 @@ const Dashboard = () => {
     );
   };
 
-  // Removed TransactionItem component as per user request
+  // Recent Activity Component
+  const RecentActivity = () => {
+    return (
+      <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+        <div className="p-6">
+          <h3 className="text-lg font-medium text-gray-700 mb-4">Recent Activity</h3>
+          
+          <div className="space-y-4">
+            {dashboardData.recentActivity.length > 0 ? (
+              dashboardData.recentActivity.map((activity) => (
+                <div key={activity.id} className="flex items-start space-x-3">
+                  <div className={`p-2 rounded-full ${
+                    activity.type === 'deposit' ? 'bg-green-100' : 'bg-red-100'
+                  }`}>
+                    {activity.type === 'deposit' ? (
+                      <ArrowUpIcon className="h-5 w-5 text-green-600" />
+                    ) : (
+                      <ArrowDownIcon className="h-5 w-5 text-red-600" />
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex justify-between">
+                      <p className="text-sm font-medium text-gray-900">{activity.description}</p>
+                      <p className={`text-sm font-medium ${
+                        activity.type === 'deposit' ? 'text-green-600' : 'text-red-600'
+                      }`}>
+                        {activity.type === 'deposit' ? '+' : '-'}
+                        ETB {Math.abs(activity.amount).toLocaleString()}
+                      </p>
+                    </div>
+                    <p className="text-xs text-gray-500">{formatDate(activity.date)}</p>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p className="text-center text-gray-500 py-4">No recent activity</p>
+            )}
+          </div>
+          
+          <div className="mt-6 pt-4 border-t border-gray-100">
+            <Link 
+              to="/user/savings"
+              className="text-sm font-medium text-blue-600 hover:text-blue-800 flex items-center"
+            >
+              View all activity
+              <svg className="ml-1 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
-  // Removed LoanItem component as it's part of transaction history display
+  // Quick Actions Component
+  const QuickActions = () => {
+    return (
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        {quickActions.map((action) => (
+          <Link
+            key={action.title}
+            to={action.link}
+            className="bg-white rounded-xl shadow-sm p-4 hover:shadow-md transition-shadow"
+          >
+            <div className={`${action.color} w-10 h-10 rounded-full flex items-center justify-center mb-3`}>
+              <action.icon className="h-5 w-5" />
+            </div>
+            <h3 className="text-sm font-medium text-gray-900">{action.title}</h3>
+          </Link>
+        ))}
+      </div>
+    );
+  };
+
+  // Notifications Component
+  const Notifications = () => {
+    return (
+      <div className="relative">
+        <button
+          onClick={() => setShowNotifications(!showNotifications)}
+          className="relative p-2 text-gray-600 hover:text-gray-900 focus:outline-none"
+        >
+          <BellIcon className="h-6 w-6" />
+          {dashboardData.notifications.length > 0 && (
+            <span className="absolute top-0 right-0 block h-2 w-2 rounded-full bg-red-400 ring-2 ring-white" />
+          )}
+        </button>
+
+        {showNotifications && (
+          <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg ring-1 ring-black ring-opacity-5 z-50">
+            <div className="p-4">
+              <h3 className="text-sm font-medium text-gray-900 mb-3">Notifications</h3>
+              <div className="space-y-3">
+                {dashboardData.notifications.length > 0 ? (
+                  dashboardData.notifications.map((notification, index) => (
+                    <div key={index} className="flex items-start space-x-3">
+                      {notification.type === 'warning' ? (
+                        <ExclamationTriangleIcon className="h-5 w-5 text-yellow-500" />
+                      ) : (
+                        <CheckCircleIcon className="h-5 w-5 text-green-500" />
+                      )}
+                      <div>
+                        <p className="text-sm text-gray-900">{notification.message}</p>
+                        <p className="text-xs text-gray-500">{formatDate(notification.date)}</p>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-gray-500 text-center">No new notifications</p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          
-          
-          <h1 className="text-2xl font-bold text-gray-900">
-            Welcome to your Dashboard
-          </h1>
-          
-          <p className="mt-1 text-gray-500">
+          <div className="flex items-center space-x-3 mb-2">
+            <div className="h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
+              <UserIcon className="h-6 w-6 text-blue-600" />
+            </div>
+            <h1 className="text-2xl font-bold text-gray-900">
+              Welcome back, {user?.username}!
+            </h1>
+            <Notifications />
+          </div>
+          <p className="text-gray-500">
             Here's your financial overview
           </p>
         </div>
 
-        <div className="flex items-center space-x-3 mb-2">
-            <div className="h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
-              <UserIcon className="h-6 w-6 text-blue-600" />
-            </div>
-            <span className="text-lg font-medium text-gray-900">{user?.username}</span>
-          </div>
-
+        <button
+          onClick={fetchUserDashboardData}
+          className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+        >
+          <ArrowPathIcon className={`-ml-1 mr-2 h-5 w-5 ${isLoading ? 'animate-spin' : ''}`} />
+          Refresh
+        </button>
       </div>
 
       {error && (
@@ -656,31 +761,28 @@ const Dashboard = () => {
           <div>
             <h3 className="text-sm font-medium text-red-800">Error</h3>
             <p className="text-sm text-red-700 mt-1">{error}</p>
-            <button 
-              onClick={fetchUserDashboardData} 
-              className="mt-2 inline-flex items-center text-sm font-medium text-red-700 hover:text-red-600"
-            >
-              <ArrowPathIcon className="h-4 w-4 mr-1" />
-              Retry
-            </button>
           </div>
         </div>
       )}
+
+      {/* Quick Actions */}
+      <QuickActions />
 
       {isLoading ? (
         <div className="flex justify-center items-center h-64">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {/* My Balance Card */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Main Cards */}
           <BalanceCard />
-          
-          {/* Loan Progress Card */}
           <LoanProgressCard />
-          
-          {/* Credit Score Card */}
           <CreditScoreCard />
+          
+          {/* Recent Activity - Full Width */}
+          <div className="lg:col-span-3">
+            <RecentActivity />
+          </div>
         </div>
       )}
     </div>

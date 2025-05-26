@@ -62,15 +62,32 @@ const Reports = () => {
 
     try {
       // Fetch loans
-      const loansResponse = await api.get('/loans', { params: { admin: 'True' } });
+      const loansResponse = await api.get('/api/v1/loans', { 
+        params: { admin: 'True' },
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('session_id')}`,
+          'Content-Type': 'application/json'
+        }
+      });
       const loans = Array.isArray(loansResponse.data) ? loansResponse.data : [];
 
       // Fetch repayments
-      const repaymentsResponse = await api.get('/repayments');
+      const repaymentsResponse = await api.get('/api/v1/repayments', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('session_id')}`,
+          'Content-Type': 'application/json'
+        }
+      });
       const repayments = Array.isArray(repaymentsResponse.data) ? repaymentsResponse.data : [];
 
       // Fetch users
-      const usersResponse = await api.get('/users', { params: { admin: 'True' } });
+      const usersResponse = await api.get('/api/v1/users', { 
+        params: { admin: 'True' },
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('session_id')}`,
+          'Content-Type': 'application/json'
+        }
+      });
       const users = Array.isArray(usersResponse.data) ? usersResponse.data.filter(u => !u.admin) : [];
 
       // Calculate summary statistics
