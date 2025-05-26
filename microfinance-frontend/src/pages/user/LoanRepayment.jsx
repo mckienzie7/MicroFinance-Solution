@@ -47,7 +47,7 @@ const LoanRepayment = () => {
     setError(null);
     
     try {
-      const accountsResponse = await api.get('/accounts/me');
+      const accountsResponse = await api.get('/api/v1/accounts/me');
       const userAccounts = accountsResponse.data;
 
       if (!userAccounts || userAccounts.length === 0) {
@@ -58,7 +58,7 @@ const LoanRepayment = () => {
       }
 
       const userAccount = userAccounts[0];
-      const loansResponse = await api.get('/loans');
+      const loansResponse = await api.get('/api/v1/loans');
       
       // Filter loans to show only those that are active/approved and have a remaining balance
       const activeLoans = loansResponse.data.filter(loan => {
@@ -189,7 +189,7 @@ const LoanRepayment = () => {
         description: paymentForm.description.trim() || 'Loan repayment'
       };
       
-      const response = await api.post('/repayments/make-payment', paymentData);
+      const response = await api.post('/api/v1/repayments/make-payment', paymentData);
       
       setSuccessMessage(`Payment of ${formatCurrency(parseFloat(paymentForm.amount))} processed successfully!`);
       

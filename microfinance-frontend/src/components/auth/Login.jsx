@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import api from '../../services/api';
 
 const Login = () => {
   const [formData, setFormData] = useState({
@@ -9,10 +10,11 @@ const Login = () => {
   });
   const [formErrors, setFormErrors] = useState({});
   const [showSessionExpired, setShowSessionExpired] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, isLoading, authError, isAuthenticated, role, clearAuthError } = useAuth();
+  const { login, authError, isAuthenticated, role, clearAuthError } = useAuth();
 
   useEffect(() => {
     // Clear any previous errors when component mounts
@@ -63,33 +65,55 @@ const Login = () => {
     
     // Clear any previous errors
     setLoginError('');
+    setIsLoading(true);
     
     if (validateForm()) {
       try {
         console.log('Submitting login form with:', formData);
+        const response = await api.post('/api/v1/users/login', formData);
+        
+        // Store user data and session ID
+        const { email, username, admin, id } = response.data;
+        localStorage.setItem('user', JSON.stringify({
+          email,
+          username,
+          admin,
+          id,
+          role: admin ? 'admin' : 'user'
+        }));
+        
+        // Get session ID from cookie
+        const cookies = document.cookie.split(';');
+        const sessionCookie = cookies.find(cookie => cookie.trim().startsWith('session_id='));
+        if (sessionCookie) {
+          const sessionId = sessionCookie.split('=')[1];
+          localStorage.setItem('session_id', sessionId);
+        }
+        
+        // Call the login function from context to update state
         await login(formData);
         
-        // Force redirect after successful login
-        console.log('Login successful, manually redirecting...');
-        const redirectTo = role === 'admin' ? '/admin/dashboard' : '/user/dashboard';
-        console.log('Redirecting to:', redirectTo);
-        
-        // Short timeout to allow state to update before redirect
-        setTimeout(() => {
-          navigate(redirectTo, { replace: true });
-        }, 500);
+        // Redirect based on role
+        const redirectTo = admin ? '/admin/dashboard' : '/user/dashboard';
+        navigate(redirectTo, { replace: true });
       } catch (error) {
         console.error('Login error:', error);
         
         // Set a specific error message for incorrect credentials
-        if (error.message && error.message.includes('credentials')) {
+        if (error.response?.status === 401) {
           setLoginError('Invalid email or password. Please try again.');
+        } else if (error.response?.status === 404) {
+          setLoginError('Server error. Please try again later.');
         } else if (error.message) {
           setLoginError(error.message);
         } else {
           setLoginError('Login failed. Please check your credentials and try again.');
         }
+      } finally {
+        setIsLoading(false);
       }
+    } else {
+      setIsLoading(false);
     }
   };
 
@@ -125,7 +149,9 @@ const Login = () => {
                     autoComplete="email"
                     value={formData.email}
                     onChange={handleChange}
-                    className={`form-input ${formErrors.email ? 'border-red-500' : ''}`}
+                    className={`appearance-none block w-full px-3 py-2 border ${
+                      formErrors.email ? 'border-red-300' : 'border-gray-300'
+                    } rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
                   />
                   {formErrors.email && (
                     <p className="mt-1 text-sm text-red-600">{formErrors.email}</p>
@@ -145,7 +171,9 @@ const Login = () => {
                     autoComplete="current-password"
                     value={formData.password}
                     onChange={handleChange}
-                    className={`form-input ${formErrors.password ? 'border-red-500' : ''}`}
+                    className={`appearance-none block w-full px-3 py-2 border ${
+                      formErrors.password ? 'border-red-300' : 'border-gray-300'
+                    } rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
                   />
                   {formErrors.password && (
                     <p className="mt-1 text-sm text-red-600">{formErrors.password}</p>
@@ -177,9 +205,21 @@ const Login = () => {
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="btn-primary w-full flex justify-center"
+                  className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${
+                    isLoading ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'
+                  }`}
                 >
-                  {isLoading ? 'Signing in...' : 'Sign in'}
+                  {isLoading ? (
+                    <span className="flex items-center">
+                      <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Signing in...
+                    </span>
+                  ) : (
+                    'Sign in'
+                  )}
                 </button>
               </div>
             </form>

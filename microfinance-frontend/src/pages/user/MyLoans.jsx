@@ -44,7 +44,7 @@ const MyLoans = () => {
   const fetchAdmins = async () => {
     setIsLoadingAdmins(true);
     try {
-      const response = await api.get('/users/admins');
+      const response = await api.get('/api/v1/users/admins');
       setAdmins(response.data);
     } catch (err) {
       console.error('Error fetching admins:', err);
@@ -81,7 +81,7 @@ const MyLoans = () => {
     try {
       // First, fetch the user's account
       console.log('Fetching user account for user ID:', user.id);
-      const accountsResponse = await api.get('/accounts/me');
+      const accountsResponse = await api.get('/api/v1/accounts/me');
       const userAccounts = accountsResponse.data;
       console.log('User accounts:', userAccounts);
 
@@ -95,7 +95,7 @@ const MyLoans = () => {
       console.log('Using account:', userAccount);
 
       // Now fetch all loans
-      const loansResponse = await api.get('/loans');
+      const loansResponse = await api.get('/api/v1/loans');
       const allLoans = loansResponse.data;
       console.log('All loans:', allLoans);
 
@@ -235,7 +235,7 @@ const MyLoans = () => {
       // Debug log to see request data
       console.log('Sending loan data:', loanData);
       
-      const response = await api.post('/loans', loanData);
+      const response = await api.post('/api/v1/loans', loanData);
       
       setSuccessMessage('Loan application submitted successfully!');
       setLoanForm({
