@@ -111,7 +111,7 @@ def make_payment():
 
         acc = AccountController()
         account = acc.get_accounts_by_id(user_id)
-        amount_1 = account.balance + amount
+        amount_1 = account.balance - amount
         data1 = {"balance" : amount_1}
         acc.update_account(
             account,
