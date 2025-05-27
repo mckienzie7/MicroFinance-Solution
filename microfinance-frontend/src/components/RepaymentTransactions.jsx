@@ -20,39 +20,83 @@ const RepaymentTransactions = ({ loanId }) => {
   const { user } = useAuth();
 
   useEffect(() => {
-    if (loanId && user) {
+    if (user) {
+      console.log('Fetching repayments for user:', user.id);
       fetchRepayments();
     }
-  }, [loanId, user]);
+  }, [user, loanId]);
 
   const fetchRepayments = async () => {
     setIsLoading(true);
     setError(null);
 
     try {
-      // Fetch repayment transactions
-      const response = await api.post('/api/v1/repayments_transactions', {
+      // Fetch repayment transactions for the user
+      console.log('Fetching repayments with user_id:', user.id);
+      const response = await api.post('/api/v1/repayment_transactions', {
         user_id: user.id
       });
       
+      const allRepayments = response.data || [];
+      console.log('All repayments length:', allRepayments.length);
+      
+      // Fetch repayment details for each transaction
+      const repaymentDetailsPromises = allRepayments.map(async (transaction) => {
+        try {
+          const repaymentResponse = await api.get(`/api/v1/repayments/${transaction.repayment_id}`);
+          return {
+            ...transaction,
+            repayment: repaymentResponse.data
+          };
+        } catch (err) {
+          console.error(`Error fetching repayment details for ${transaction.repayment_id}:`, err);
+          return transaction;
+        }
+      });
+
+      const repaymentsWithDetails = await Promise.all(repaymentDetailsPromises);
+      console.log('Repayments with details:', repaymentsWithDetails);
+
       // Filter transactions for the current loan
-      const loanTransactions = response.data.filter(transaction => 
-        transaction.loan_id === loanId
+      const loanRepayments = loanId 
+        ? repaymentsWithDetails.filter(transaction => {
+            console.log('Checking transaction with repayment:', transaction);
+            const isMatch = transaction.repayment && transaction.repayment.loan_id === loanId;
+            console.log('Is match?', isMatch);
+            return isMatch;
+          })
+        : repaymentsWithDetails;
+
+      // Sort repayments by date (newest first)
+      const sortedRepayments = loanRepayments.sort((a, b) => 
+        new Date(b.created_at) - new Date(a.created_at)
       );
 
-      setRepayments(loanTransactions);
+      console.log('Filtered and sorted repayments:', sortedRepayments);
+      setRepayments(sortedRepayments);
 
-      // Calculate total paid
-      const total = loanTransactions.reduce((sum, transaction) => 
-        sum + parseFloat(transaction.amount), 0);
-      setTotalPaid(total);
+      // Calculate total paid for this loan
+      const total = sortedRepayments.reduce((sum, repayment) => {
+        const amount = parseFloat(repayment.amount || 0);
+        console.log('Adding amount:', amount);
+        return sum + amount;
+      }, 0);
+      
+      console.log('Total paid:', total);
+      setTotalPaid(Math.abs(total));
 
-      // Fetch loan details to get remaining balance
-      const loanResponse = await api.get(`/api/v1/loans/${loanId}`);
-      const loanData = loanResponse.data;
-      setRemainingBalance(parseFloat(loanData.remaining_balance || loanData.amount));
+      // Fetch loan details to get remaining balance if loanId is provided
+      if (loanId) {
+        const loanResponse = await api.get(`/api/v1/loans/${loanId}`);
+        console.log('Loan details:', loanResponse.data);
+        const loanData = loanResponse.data;
+        const remainingBal = parseFloat(loanData.amount) - Math.abs(total);
+        console.log('Calculated remaining balance:', remainingBal);
+        setRemainingBalance(remainingBal);
+      }
     } catch (err) {
       console.error('Error fetching repayments:', err);
+      console.error('Error details:', err.response?.data);
       setError('Failed to load repayment history. Please try again later.');
     } finally {
       setIsLoading(false);
@@ -108,12 +152,14 @@ const RepaymentTransactions = ({ loanId }) => {
             {formatCurrency(totalPaid)}
           </p>
         </div>
-        <div className="bg-green-50 rounded-lg p-4">
-          <h3 className="text-sm font-medium text-green-800">Remaining Balance</h3>
-          <p className="mt-2 text-2xl font-semibold text-green-900">
-            {formatCurrency(remainingBalance)}
-          </p>
-        </div>
+        {loanId && (
+          <div className="bg-green-50 rounded-lg p-4">
+            <h3 className="text-sm font-medium text-green-800">Remaining Balance</h3>
+            <p className="mt-2 text-2xl font-semibold text-green-900">
+              {formatCurrency(remainingBalance)}
+            </p>
+          </div>
+        )}
         <div className="bg-purple-50 rounded-lg p-4">
           <h3 className="text-sm font-medium text-purple-800">Total Transactions</h3>
           <p className="mt-2 text-2xl font-semibold text-purple-900">
@@ -153,7 +199,7 @@ const RepaymentTransactions = ({ loanId }) => {
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                   <div className="flex items-center">
                     <CurrencyDollarIcon className="w-5 h-5 text-green-500 mr-2" />
-                    {formatCurrency(transaction.amount)}
+                    {formatCurrency(Math.abs(transaction.amount))}
                   </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
@@ -170,6 +216,11 @@ const RepaymentTransactions = ({ loanId }) => {
                     <span className="text-xs text-gray-500">
                       {transaction.description || 'Loan Repayment'}
                     </span>
+                    {!loanId && transaction.loan_id && (
+                      <span className="text-xs text-gray-500">
+                        Loan ID: {transaction.loan_id}
+                      </span>
+                    )}
                   </div>
                 </td>
               </tr>

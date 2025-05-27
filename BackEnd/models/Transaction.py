@@ -11,6 +11,8 @@ class Transaction(BaseModel, Base):
     """Transaction Model"""
     __tablename__ = 'transactions'
 
+
+    repayment_id = Column(String(60), ForeignKey('repayments.id'))
     account_id = Column(String(60), ForeignKey('accounts.id'), nullable=False)
     amount = Column(Float, nullable=False)
     transaction_type = Column(String(50), nullable=False)

@@ -239,10 +239,29 @@ def get_loan_repayments(loan_id):
     """
     Retrieves all repayments for a specific loan
     """
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return jsonify({"message": "No authorization token provided"}), 401
+    
+    token = auth_header.split(' ')[1]
+    auth_controller = AuthController()
+    user = auth_controller.get_user_from_session_id(token)
+    
+    if not user:
+        return jsonify({"message": "Unauthorized"}), 401
+
+    # First check if the loan exists
     loan = storage.get(Loan, loan_id)
     if not loan:
-        abort(404)
+        return jsonify({"message": "Loan not found"}), 404
 
-    controller = LoanController()
-    repayments = controller.get_loan_repayments(loan)
-    return jsonify([repayment.to_dict() for repayment in repayments]) 
+    # Check if user has permission to view this loan's repayments
+    if not user.admin and loan.account.user_id != user.id:
+        return jsonify({"message": "Unauthorized"}), 403
+
+    try:
+        controller = LoanController()
+        repayments = controller.get_loan_repayments(loan_id)
+        return jsonify([repayment.to_dict() for repayment in repayments])
+    except Exception as e:
+        return jsonify({"message": str(e)}), 500 
