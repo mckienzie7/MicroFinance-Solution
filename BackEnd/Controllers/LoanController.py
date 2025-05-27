@@ -219,7 +219,11 @@ class LoanController:
         if not loan:
             raise NoResultFound("Loan not found")
 
-        return self.db.get_transactions_by_loan(loan_id)
+        # Query transactions directly using SQLAlchemy
+        return self.db.session().query(Transaction).filter(
+            Transaction.account_id == loan.account_id,
+            Transaction.transaction_type == "loan_repayment"
+        ).order_by(Transaction.created_at.desc()).all()
 
     def update_loan(self, loan_id: str, **updates) -> Loan:
         """Update loan information"""
