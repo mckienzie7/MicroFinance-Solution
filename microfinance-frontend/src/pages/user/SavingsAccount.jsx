@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import api from '../../services/api';
+import SavingsReport from '../../components/SavingsReport';
 import { 
   BanknotesIcon, 
   ArrowPathIcon,
@@ -28,12 +29,20 @@ const SavingsAccount = () => {
   // Form validation state
   const [formErrors, setFormErrors] = useState({});
   
+  // Add withdrawal form state
+  const [withdrawalForm, setWithdrawalForm] = useState({
+    amount: '',
+    description: 'Savings withdrawal',
+    account_id: ''
+  });
+  
   // Fetch account data on component mount
   useEffect(() => {
     // Reset state on user change
     setAccountData(null);
     setTransactions([]);
     setDepositForm({ amount: '', description: 'Savings deposit', account_id: '' });
+    setWithdrawalForm({ amount: '', description: 'Savings withdrawal', account_id: '' });
     setError(null);
     setSuccessMessage('');
     if (isAuthenticated && user) {
@@ -44,7 +53,7 @@ const SavingsAccount = () => {
   // Verify API endpoints are available
   const verifyApiEndpoints = async () => {
     try {
-      await api.get('/accounts/me');
+      await api.get('/api/v1/accounts/me');
       return true;
     } catch (err) {
       console.error('API verification failed:', err);
@@ -87,7 +96,7 @@ const SavingsAccount = () => {
       }
       
       // Get user's accounts using the /accounts/me endpoint
-      const accountsResponse = await api.get('/accounts/me', {
+      const accountsResponse = await api.get('/api/v1/accounts/me', {
         headers: {
           'Accept': 'application/json',
           'Content-Type': 'application/json'
@@ -105,6 +114,7 @@ const SavingsAccount = () => {
       console.log('Using savings account:', savingsAccount);
       setAccountData(savingsAccount);
       setDepositForm(prev => ({ ...prev, account_id: savingsAccount.id }));
+      setWithdrawalForm(prev => ({ ...prev, account_id: savingsAccount.id }));
       
       // Get transactions
       await fetchTransactionHistory(savingsAccount.id);
@@ -143,7 +153,7 @@ const SavingsAccount = () => {
     if (!accountId) return;
     
     try {
-      const transactionsResponse = await api.get(`/transactions/account/${accountId}`);
+      const transactionsResponse = await api.get(`/api/v1/transactions/account/${accountId}`);
       const transactions = transactionsResponse.data;
       
       if (!transactions || transactions.length === 0) {
@@ -152,9 +162,10 @@ const SavingsAccount = () => {
         return;
       }
       
-      // Filter for deposit/savings transactions
+      // Filter for deposit and withdrawal transactions
       const savingsTransactions = transactions.filter(t => 
         t.transaction_type === 'deposit' || 
+        t.transaction_type === 'withdrawal' ||
         (t.description && t.description.toLowerCase().includes('saving'))
       );
       
@@ -163,7 +174,13 @@ const SavingsAccount = () => {
         new Date(b.created_at) - new Date(a.created_at)
       );
       
-      setTransactions(savingsTransactions);
+      // Format transaction amounts (positive for deposits, negative for withdrawals)
+      const formattedTransactions = savingsTransactions.map(t => ({
+        ...t,
+        amount: t.transaction_type === 'withdrawal' ? -Math.abs(t.amount) : Math.abs(t.amount)
+      }));
+      
+      setTransactions(formattedTransactions);
       
     } catch (err) {
       console.error('Error fetching transaction history:', err);
@@ -183,6 +200,16 @@ const SavingsAccount = () => {
     }
   };
 
+  const handleWithdrawalInputChange = (e) => {
+    const { name, value } = e.target;
+    setWithdrawalForm(prev => ({ ...prev, [name]: value }));
+    
+    // Clear error for this field when user starts typing
+    if (formErrors[`withdrawal_${name}`]) {
+      setFormErrors(prev => ({ ...prev, [`withdrawal_${name}`]: null }));
+    }
+  };
+
   const validateForm = () => {
     const errors = {};
     
@@ -195,6 +222,23 @@ const SavingsAccount = () => {
     }
     
     setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const validateWithdrawalForm = () => {
+    const errors = {};
+    
+    if (!withdrawalForm.amount || isNaN(withdrawalForm.amount) || parseFloat(withdrawalForm.amount) <= 0) {
+      errors.withdrawal_amount = 'Please enter a valid withdrawal amount';
+    } else if (accountData && parseFloat(withdrawalForm.amount) > parseFloat(accountData.balance)) {
+      errors.withdrawal_amount = 'Withdrawal amount cannot exceed your current balance';
+    }
+    
+    if (!withdrawalForm.account_id) {
+      errors.withdrawal_account_id = 'Account ID is required. Please refresh the page.';
+    }
+    
+    setFormErrors(prev => ({ ...prev, ...errors }));
     return Object.keys(errors).length === 0;
   };
 
@@ -215,7 +259,7 @@ const SavingsAccount = () => {
     
     try {
       // Make deposit to backend
-      await api.post(`/accounts/${depositForm.account_id}/deposit`, {
+      await api.post(`/api/v1/accounts/${depositForm.account_id}/deposit`, {
         amount: parseFloat(depositForm.amount)
       });
       setSuccessMessage('Deposit successful! Your savings have been updated.');
@@ -246,6 +290,58 @@ const SavingsAccount = () => {
         setError('No response from server. Please check your network connection.');
       } else {
         setError('Failed to process deposit. Please try again later.');
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSubmitWithdrawal = async (e) => {
+    e.preventDefault();
+    
+    // Validate form
+    if (!validateWithdrawalForm()) {
+      return;
+    }
+    
+    setIsLoading(true);
+    setError(null);
+    setSuccessMessage('');
+    setFormErrors({});
+    
+    try {
+      // Make withdrawal from backend
+      await api.post(`/api/v1/accounts/${withdrawalForm.account_id}/withdraw`, {
+        amount: parseFloat(withdrawalForm.amount)
+      });
+      setSuccessMessage('Withdrawal successful! Your savings have been updated.');
+      setWithdrawalForm(prev => ({ ...prev, amount: '', description: 'Savings withdrawal' }));
+      // Refresh account data to get new balance
+      fetchAccountData();
+    } catch (err) {
+      console.error('Error processing withdrawal:', err);
+      if (err.response) {
+        switch (err.response.status) {
+          case 400:
+            setError(`Invalid withdrawal request: ${err.response.data?.error || 'Please check your input.'}`);
+            break;
+          case 401:
+          case 403:
+            setError('Authentication error. Please log in again.');
+            break;
+          case 404:
+            setError('Account not found. Please contact support.');
+            break;
+          case 500:
+            setError('Server error processing your withdrawal. Please try again later.');
+            break;
+          default:
+            setError(`Failed to process withdrawal: ${err.response.data?.error || 'Unknown error'}`);
+        }
+      } else if (err.request) {
+        setError('No response from server. Please check your network connection.');
+      } else {
+        setError('Failed to process withdrawal. Please try again later.');
       }
     } finally {
       setIsLoading(false);
@@ -330,71 +426,128 @@ const SavingsAccount = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Deposit Form */}
         <div className="lg:col-span-1 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-  <div className="p-6 border-b border-gray-200">
-    <h2 className="text-lg font-semibold text-gray-900">Make a Deposit</h2>
-  </div>
+          <div className="p-6 border-b border-gray-200">
+            <h2 className="text-lg font-semibold text-gray-900">Make a Deposit</h2>
+          </div>
 
-  <form onSubmit={handleSubmitDeposit} className="space-y-4 p-6">
-    {/* Amount */}
-    <div>
-      <label htmlFor="amount" className="block text-sm font-medium text-gray-700">
-        Deposit Amount
-      </label>
-      <input
-        type="number"
-        name="amount"
-        id="amount"
-        value={depositForm.amount}
-        onChange={handleInputChange}
-        className={`w-full mt-1 px-3 py-2 border ${formErrors.amount ? 'border-red-400' : 'border-gray-300'} rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
-        placeholder="Enter deposit amount"
-        min="1"
-        step="0.01"
-        autoComplete="off"
-        aria-invalid={!!formErrors.amount}
-        aria-describedby={formErrors.amount ? "amount-error" : undefined}
-      />
-      {formErrors.amount && (
-        <p id="amount-error" className="mt-1 text-sm text-red-600">{formErrors.amount}</p>
-      )}
-    </div>
+          <form onSubmit={handleSubmitDeposit} className="space-y-4 p-6">
+            {/* Amount */}
+            <div>
+              <label htmlFor="amount" className="block text-sm font-medium text-gray-700">
+                Deposit Amount
+              </label>
+              <input
+                type="number"
+                name="amount"
+                id="amount"
+                value={depositForm.amount}
+                onChange={handleInputChange}
+                className={`w-full mt-1 px-3 py-2 border ${formErrors.amount ? 'border-red-400' : 'border-gray-300'} rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
+                placeholder="Enter deposit amount"
+                min="1"
+                step="0.01"
+                autoComplete="off"
+                aria-invalid={!!formErrors.amount}
+                aria-describedby={formErrors.amount ? "amount-error" : undefined}
+              />
+              {formErrors.amount && (
+                <p id="amount-error" className="mt-1 text-sm text-red-600">{formErrors.amount}</p>
+              )}
+            </div>
 
-    {/* Description */}
-    <div>
-      <label htmlFor="description" className="block text-sm font-medium text-gray-700">
-        Description
-      </label>
-      <input
-        type="text"
-        name="description"
-        id="description"
-        value={depositForm.description}
-        onChange={handleInputChange}
-        className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-        placeholder="E.g., January savings"
-        autoComplete="off"
-      />
-    </div>
+            {/* Description */}
+            <div>
+              <label htmlFor="description" className="block text-sm font-medium text-gray-700">
+                Description
+              </label>
+              <input
+                type="text"
+                name="description"
+                id="description"
+                value={depositForm.description}
+                onChange={handleInputChange}
+                className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                placeholder="E.g., January savings"
+                autoComplete="off"
+              />
+            </div>
 
-    {/* Submit */}
-    <div className="pt-4">
-      <button
-        type="submit"
-        disabled={isLoading || !depositForm.account_id}
-        className="w-full px-4 py-3 text-center font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:bg-blue-300"
-      >
-        {isLoading ? 'Processing...' : 'Make Deposit'}
-      </button>
-    </div>
-  </form>
-</div>
+            {/* Submit */}
+            <div className="pt-4">
+              <button
+                type="submit"
+                disabled={isLoading || !depositForm.account_id}
+                className="w-full px-4 py-3 text-center font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:bg-blue-300"
+              >
+                {isLoading ? 'Processing...' : 'Make Deposit'}
+              </button>
+            </div>
+          </form>
+        </div>
 
-        
-       
+        {/* Withdrawal Form */}
+        <div className="lg:col-span-1 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="p-6 border-b border-gray-200">
+            <h2 className="text-lg font-semibold text-gray-900">Make a Withdrawal</h2>
+          </div>
 
+          <form onSubmit={handleSubmitWithdrawal} className="space-y-4 p-6">
+            {/* Amount */}
+            <div>
+              <label htmlFor="withdrawal_amount" className="block text-sm font-medium text-gray-700">
+                Withdrawal Amount
+              </label>
+              <input
+                type="number"
+                name="amount"
+                id="withdrawal_amount"
+                value={withdrawalForm.amount}
+                onChange={handleWithdrawalInputChange}
+                className={`w-full mt-1 px-3 py-2 border ${formErrors.withdrawal_amount ? 'border-red-400' : 'border-gray-300'} rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
+                placeholder="Enter withdrawal amount"
+                min="1"
+                step="0.01"
+                autoComplete="off"
+                aria-invalid={!!formErrors.withdrawal_amount}
+                aria-describedby={formErrors.withdrawal_amount ? "withdrawal-amount-error" : undefined}
+              />
+              {formErrors.withdrawal_amount && (
+                <p id="withdrawal-amount-error" className="mt-1 text-sm text-red-600">{formErrors.withdrawal_amount}</p>
+              )}
+            </div>
 
-{/* Transaction History */}
-        <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            {/* Description */}
+            <div>
+              <label htmlFor="withdrawal_description" className="block text-sm font-medium text-gray-700">
+                Description
+              </label>
+              <input
+                type="text"
+                name="description"
+                id="withdrawal_description"
+                value={withdrawalForm.description}
+                onChange={handleWithdrawalInputChange}
+                className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                placeholder="E.g., Monthly expenses"
+                autoComplete="off"
+              />
+            </div>
+
+            {/* Submit */}
+            <div className="pt-4">
+              <button
+                type="submit"
+                disabled={isLoading || !withdrawalForm.account_id}
+                className="w-full px-4 py-3 text-center font-medium rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors disabled:bg-red-300"
+              >
+                {isLoading ? 'Processing...' : 'Make Withdrawal'}
+              </button>
+            </div>
+          </form>
+        </div>
+
+        {/* Transaction History */}
+        <div className="lg:col-span-1 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
           <div className="p-6 border-b border-gray-200">
             <h2 className="text-lg font-medium text-gray-900">Recent Savings Transactions</h2>
           </div>
@@ -454,6 +607,14 @@ const SavingsAccount = () => {
           )}
         </div>
       </div>
+
+      {/* Add Savings Report Section */}
+      {accountData && transactions.length > 0 && (
+        <SavingsReport 
+          accountData={accountData}
+          transactions={transactions}
+        />
+      )}
     </div>
   );
 };

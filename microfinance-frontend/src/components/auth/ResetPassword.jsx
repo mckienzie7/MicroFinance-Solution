@@ -45,7 +45,7 @@ const ResetPassword = () => {
     setStatus({ type: '', message: '' });
 
     try {
-      const response = await axios.post('/api/users/reset-password',
+      const response = await axios.post('/api/v1/users/reset-password',
         {
           token,
           password: formData.password

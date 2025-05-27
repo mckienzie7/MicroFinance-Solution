@@ -15,7 +15,7 @@ const ForgotPassword = () => {
     console.log('Attempting to send forgot password request...');
     
     try {
-      const response = await api.post('/users/forgot-password', { email });
+      const response = await api.post('/api/v1/users/forgot-password', { email });
       console.log('Forgot password response:', response);
       
       setStatus({

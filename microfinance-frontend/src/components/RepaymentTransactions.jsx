@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 import {
   ArrowPathIcon,
   CurrencyDollarIcon,
@@ -16,29 +17,38 @@ const RepaymentTransactions = ({ loanId }) => {
   const [error, setError] = useState(null);
   const [totalPaid, setTotalPaid] = useState(0);
   const [remainingBalance, setRemainingBalance] = useState(0);
+  const { user } = useAuth();
 
   useEffect(() => {
-    if (loanId) {
+    if (loanId && user) {
       fetchRepayments();
     }
-  }, [loanId]);
+  }, [loanId, user]);
 
   const fetchRepayments = async () => {
     setIsLoading(true);
     setError(null);
 
     try {
-      // Fetch repayments with transactions
-      const response = await api.get(`/loans/${loanId}/repayments/with-transactions`);
-      const data = response.data.repayments;
-      setRepayments(data);
+      // Fetch repayment transactions
+      const response = await api.post('/api/v1/repayments_transactions', {
+        user_id: user.id
+      });
+      
+      // Filter transactions for the current loan
+      const loanTransactions = response.data.filter(transaction => 
+        transaction.loan_id === loanId
+      );
+
+      setRepayments(loanTransactions);
 
       // Calculate total paid
-      const total = data.reduce((sum, repayment) => sum + parseFloat(repayment.amount), 0);
+      const total = loanTransactions.reduce((sum, transaction) => 
+        sum + parseFloat(transaction.amount), 0);
       setTotalPaid(total);
 
       // Fetch loan details to get remaining balance
-      const loanResponse = await api.get(`/loans/${loanId}`);
+      const loanResponse = await api.get(`/api/v1/loans/${loanId}`);
       const loanData = loanResponse.data;
       setRemainingBalance(parseFloat(loanData.remaining_balance || loanData.amount));
     } catch (err) {
@@ -132,39 +142,35 @@ const RepaymentTransactions = ({ loanId }) => {
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {repayments.map((repayment) => (
-              <tr key={repayment.id} className="hover:bg-gray-50">
+            {repayments.map((transaction) => (
+              <tr key={transaction.id} className="hover:bg-gray-50">
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                   <div className="flex items-center">
                     <CalendarIcon className="w-5 h-5 text-gray-400 mr-2" />
-                    {formatDate(repayment.created_at)}
+                    {formatDate(transaction.created_at)}
                   </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                   <div className="flex items-center">
                     <CurrencyDollarIcon className="w-5 h-5 text-green-500 mr-2" />
-                    {formatCurrency(repayment.amount)}
+                    {formatCurrency(transaction.amount)}
                   </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full
-                    ${repayment.status === 'success' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                    {repayment.status}
+                    ${transaction.status === 'success' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                    {transaction.status || 'completed'}
                   </span>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {repayment.transaction ? (
-                    <div className="flex flex-col">
-                      <span className="text-xs text-gray-500">
-                        Transaction ID: {repayment.transaction.id}
-                      </span>
-                      <span className="text-xs text-gray-500">
-                        {repayment.transaction.description}
-                      </span>
-                    </div>
-                  ) : (
-                    <span className="text-xs text-gray-400">No transaction details</span>
-                  )}
+                  <div className="flex flex-col">
+                    <span className="text-xs text-gray-500">
+                      Transaction ID: {transaction.id}
+                    </span>
+                    <span className="text-xs text-gray-500">
+                      {transaction.description || 'Loan Repayment'}
+                    </span>
+                  </div>
                 </td>
               </tr>
             ))}
