@@ -29,3 +29,18 @@ class Account(BaseModel, Base):
     telebirr = relationship("Telebirr",
                             backref="user",
                             cascade="all, delete, delete-orphan")
+
+    def to_dict(self):
+        """Returns a dictionary representation of the Account model"""
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'account_number': self.account_number,
+            'balance': float(self.balance),
+            'type': self.type,
+            'currency': self.currency,
+            'status': self.status,
+            'overdraft_limit': float(self.overdraft_limit),
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+        }

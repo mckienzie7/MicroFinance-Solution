@@ -50,11 +50,11 @@ class AccountController:
             # If format is invalid, start with MF00001
             return "MF00001"
 
-    def get_account(self, user_id: int) -> Account:
-        """Retrieve account details for a user"""
-        if not self.auth.verify_account_existence(user_id):
-            raise NoResultFound("Account not found")
-        return self.db.get_by_user_id(Account, user_id)
+    def get_accounts_by_id(self, user_id: str) -> Account:
+        """Get all accounts for a user id"""
+        return self.db.session().query(Account).filter(
+            Account.user_id == user_id
+        ).first()
 
     def create_account(self, user_id: str, account_type: str = 'savings') -> Account:
         """Create a new account for a customer"""
