@@ -11,7 +11,7 @@ export default defineConfig({
         target: 'http://localhost:5000',
         changeOrigin: true,
         secure: false,
-        // Don't rewrite the path - keep the /api prefix
+        rewrite: (path) => path,
         configure: (proxy, _options) => {
           proxy.on('error', (err, _req, _res) => {
             console.log('proxy error', err);
@@ -22,7 +22,7 @@ export default defineConfig({
           proxy.on('proxyRes', (proxyRes, req, _res) => {
             console.log('Received Response from the Target:', proxyRes.statusCode, req.url);
           });
-        },
+        }
       }
     }
   }

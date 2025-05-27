@@ -32,18 +32,32 @@ const ApproveLoans = () => {
       setError('');
       
       // First get all accounts
-      const accountsResponse = await api.get('/accounts');
+      const accountsResponse = await api.get('/api/v1/accounts', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('session_id')}`,
+          'Content-Type': 'application/json'
+        }
+      });
       const accounts = accountsResponse.data;
       
       // Get all users
-      const usersResponse = await api.get('/users');
+      const usersResponse = await api.get('/api/v1/users', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('session_id')}`,
+          'Content-Type': 'application/json'
+        }
+      });
       const users = usersResponse.data;
       const userMap = new Map(users.map(user => [user.id, user]));
       const accountMap = new Map(accounts.map(account => [account.id, account]));
       
       // Then get all loans
-      const loansResponse = await api.get('/loans', {
-        params: { admin: "True" }
+      const loansResponse = await api.get('/api/v1/loans', {
+        params: { admin: "True" },
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('session_id')}`,
+          'Content-Type': 'application/json'
+        }
       });
       
       if (loansResponse.data && Array.isArray(loansResponse.data)) {
@@ -134,9 +148,14 @@ const ApproveLoans = () => {
     setActionLoading(true);
     try {
       // Send the loan status update to the API
-      const endpoint = action === 'approved' ? `/loans/${loanId}/approve` : `/loans/${loanId}/reject`;
+      const endpoint = action === 'approved' ? `/api/v1/loans/${loanId}/approve` : `/api/v1/loans/${loanId}/reject`;
       const response = await api.post(endpoint, {
         reason: action === 'rejected' ? 'Loan application rejected' : undefined
+      }, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('session_id')}`,
+          'Content-Type': 'application/json'
+        }
       });
       
       // Update the local state to reflect the change

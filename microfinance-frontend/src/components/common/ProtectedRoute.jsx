@@ -8,7 +8,11 @@ const LoadingSpinner = () => (
   </div>
 );
 
-const ProtectedRoute = ({ allowedRoles = ['user', 'admin'] }) => {
+const ProtectedRoute = ({ 
+  allowedRoles = ['user', 'admin'],
+  isPublic = false,
+  redirectPath = '/login'
+}) => {
   const { 
     isAuthenticated, 
     user, 
@@ -20,31 +24,34 @@ const ProtectedRoute = ({ allowedRoles = ['user', 'admin'] }) => {
   const [isChecking, setIsChecking] = useState(true);
   const [authError, setAuthError] = useState(null);
 
-  // Debug logging
-  console.log('ProtectedRoute render state:', {
-    isAuthenticated,
-    role,
-    user: user ? 'exists' : 'null',
-    allowedRoles,
-    isLoading,
-    isChecking,
-    authError: authError ? 'exists' : 'null'
-  });
+  // Debug logging in development only
+  if (process.env.NODE_ENV === 'development') {
+    console.log('ProtectedRoute render state:', {
+      isAuthenticated,
+      role,
+      user: user ? 'exists' : 'null',
+      allowedRoles,
+      isLoading,
+      isChecking,
+      authError: authError ? 'exists' : 'null',
+      isPublic
+    });
+  }
 
   useEffect(() => {
-    if (!verifySession) {
-      console.error('verifySession function missing from auth context');
-      setAuthError(new Error('Authentication service unavailable'));
-      setIsChecking(false);
-      return;
-    }
-
-    if (isAuthenticated) {
-      setIsChecking(false);
-      return;
-    }
-
     const checkAuth = async () => {
+      if (!verifySession) {
+        console.error('verifySession function missing from auth context');
+        setAuthError(new Error('Authentication service unavailable'));
+        setIsChecking(false);
+        return;
+      }
+
+      if (isAuthenticated) {
+        setIsChecking(false);
+        return;
+      }
+
       try {
         await verifySession();
       } catch (error) {
@@ -64,28 +71,46 @@ const ProtectedRoute = ({ allowedRoles = ['user', 'admin'] }) => {
     return <LoadingSpinner />;
   }
 
+  // Handle public routes
+  if (isPublic) {
+    // If user is authenticated, redirect them to their appropriate dashboard
+    if (isAuthenticated) {
+      const dashboardPath = role === 'admin' ? '/admin/dashboard' : '/user/dashboard';
+      return <Navigate to={dashboardPath} replace />;
+    }
+    // Otherwise, show the public route
+    return <Outlet />;
+  }
+
+  // Handle protected routes
   if (authError || !isAuthenticated) {
-    console.log('Authentication failed, redirecting to login');
     return (
       <Navigate 
-        to="/login" 
+        to={redirectPath}
         replace 
         state={{ 
           from: window.location.pathname,
-          error: authError?.message 
+          error: authError?.message || 'Please log in to access this page'
         }} 
       />
     );
   }
 
+  // Handle role-based access
   if (!hasRequiredRole) {
-    console.log(`Role ${role} not in ${allowedRoles}, redirecting`);
-    
-    const redirectPath = role === 'admin' 
+    const unauthorizedPath = role === 'admin' 
       ? '/admin/dashboard' 
       : '/user/dashboard';
     
-    return <Navigate to={redirectPath} replace />;
+    return (
+      <Navigate 
+        to={unauthorizedPath} 
+        replace 
+        state={{
+          error: 'You do not have permission to access this page'
+        }}
+      />
+    );
   }
 
   return <Outlet />;

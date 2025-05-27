@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import api from '../../services/api';
+import RepaymentTransactions from '../../components/RepaymentTransactions';
 import { 
   ArrowPathIcon, 
   CheckCircleIcon, 
@@ -8,7 +9,8 @@ import {
   CreditCardIcon,
   CurrencyDollarIcon,
   CalendarIcon,
-  ClockIcon
+  ClockIcon,
+  InformationCircleIcon
 } from '@heroicons/react/24/outline';
 
 const LoanRepayment = () => {
@@ -22,7 +24,7 @@ const LoanRepayment = () => {
   const [paymentForm, setPaymentForm] = useState({
     loan_id: '',
     amount: '',
-    payment_method: 'bank_transfer', // Required by the backend API
+    payment_method: 'bank_transfer',
     description: 'Loan repayment'
   });
   
@@ -45,36 +47,44 @@ const LoanRepayment = () => {
     setError(null);
     
     try {
-      // Get the current user's customer ID - using the same approach as in MyLoans.jsx
-      const customer = user;
-      if (!customer) {
-        setError('User profile not found. Please update your profile first.');
+      const accountsResponse = await api.get('/api/v1/accounts/me');
+      const userAccounts = accountsResponse.data;
+
+      if (!userAccounts || userAccounts.length === 0) {
+        const errorMsg = 'No account found. Please create an account first.';
+        console.error(errorMsg);
+        setError(errorMsg);
         return;
       }
+
+      const userAccount = userAccounts[0];
+      const loansResponse = await api.get('/api/v1/loans');
       
-      // Use the same numeric ID approach as in MyLoans.jsx
-      const customerId = '1'; // Use a valid numeric ID that exists in the backend
-      console.log('Using numeric ID as customer ID for loan repayment:', customerId);
-      
-      // Fetch all loans
-      const loansResponse = await api.get('/loans');
-      console.log('All loans fetched:', loansResponse.data);
-      
-      // Filter loans for the current customer that are active (can be repaid)
-      const activeLoans = loansResponse.data.filter(loan => 
-        loan.customer_id === customerId && 
-        (loan.loan_status?.toLowerCase() === 'active' || loan.status?.toLowerCase() === 'active')
-      );
+      // Filter loans to show only those that are active/approved and have a remaining balance
+      const activeLoans = loansResponse.data.filter(loan => {
+        const validStatus = loan.loan_status === 'active' || 
+                          loan.status === 'active' || 
+                          loan.loan_status === 'approved' || 
+                          loan.status === 'approved';
+        
+        const remainingBalance = Number(loan.remaining_balance || loan.amount || 0);
+        const hasBalance = remainingBalance > 0;
+        
+        return validStatus && hasBalance;
+      });
       
       // Sort by date (newest first)
       activeLoans.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
       
       setLoans(activeLoans);
       
-      // If there are loans, set the first one as selected by default
       if (activeLoans.length > 0) {
         setSelectedLoan(activeLoans[0]);
-        setPaymentForm(prev => ({ ...prev, loan_id: activeLoans[0].id }));
+        setPaymentForm(prev => ({ 
+          ...prev, 
+          loan_id: activeLoans[0].id,
+          amount: '' // Reset amount when loan changes
+        }));
       }
     } catch (err) {
       console.error('Error fetching loans:', err);
@@ -89,16 +99,48 @@ const LoanRepayment = () => {
     const { name, value } = e.target;
     setPaymentForm(prev => ({ ...prev, [name]: value }));
     
-    // Clear error for this field when user starts typing
     if (formErrors[name]) {
       setFormErrors(prev => ({ ...prev, [name]: null }));
     }
     
-    // If loan_id changes, update the selected loan
     if (name === 'loan_id') {
       const loan = loans.find(l => l.id === value);
       setSelectedLoan(loan || null);
     }
+  };
+  
+  // Format currency for display
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD'
+    }).format(amount);
+  };
+
+  // Calculate remaining balance for a loan
+  const getRemainingBalance = (loan) => {
+    const balance = loan.remaining_balance || loan.amount || 0;
+    return parseFloat(balance);
+  };
+
+  // Get suggested payment amounts
+  const getSuggestedAmounts = (loan) => {
+    const balance = getRemainingBalance(loan);
+    return [
+      balance * 0.25, // 25% of remaining balance
+      balance * 0.5,  // 50% of remaining balance
+      balance         // Full balance
+    ];
+  };
+
+  // Handle suggested amount click
+  const handleSuggestedAmountClick = (amount) => {
+    setPaymentForm(prev => ({
+      ...prev,
+      amount: amount.toFixed(2)
+    }));
+    // Clear any amount-related errors
+    setFormErrors(prev => ({ ...prev, amount: null }));
   };
   
   // Validate the payment form
@@ -111,8 +153,8 @@ const LoanRepayment = () => {
     
     if (!paymentForm.amount || isNaN(paymentForm.amount) || parseFloat(paymentForm.amount) <= 0) {
       errors.amount = 'Please enter a valid payment amount';
-    } else if (selectedLoan && parseFloat(paymentForm.amount) > selectedLoan.remaining_balance) {
-      errors.amount = `Payment amount cannot exceed the remaining balance of $${selectedLoan.remaining_balance}`;
+    } else if (selectedLoan && parseFloat(paymentForm.amount) > getRemainingBalance(selectedLoan)) {
+      errors.amount = `Payment amount cannot exceed the remaining balance of ${formatCurrency(getRemainingBalance(selectedLoan))}`;
     }
     
     setFormErrors(errors);
@@ -132,133 +174,102 @@ const LoanRepayment = () => {
     setSuccessMessage('');
     
     try {
-      // Format the payment data
+      const selectedLoanExists = loans.some(loan => String(loan.id) === String(paymentForm.loan_id));
+      
+      if (!selectedLoanExists) {
+        setError('The selected loan could not be found. Please select a valid loan and try again.');
+        return;
+      }
+      
       const paymentData = {
         loan_id: paymentForm.loan_id,
         amount: parseFloat(paymentForm.amount),
-        payment_method: paymentForm.payment_method, // Required by the backend API
-        description: paymentForm.description || 'Loan repayment'
+        payment_method: 'bank_transfer',
+        user_id: user.id,
+        description: paymentForm.description.trim() || 'Loan repayment'
       };
       
-      console.log('Submitting payment data:', paymentData);
+      const response = await api.post('/api/v1/repayments/make-payment', paymentData);
       
-      // Submit the payment to the API
-      const response = await api.post('/repayments/make-payment', paymentData);
+      setSuccessMessage(`Payment of ${formatCurrency(parseFloat(paymentForm.amount))} processed successfully!`);
       
-      // Update the UI to reflect the payment
-      if (selectedLoan) {
-        const updatedLoan = {
-          ...selectedLoan,
-          remaining_balance: Math.max(0, selectedLoan.remaining_balance - parseFloat(paymentForm.amount))
-        };
-        
-        // Update the loans list
-        setLoans(prev => prev.map(loan => 
-          loan.id === updatedLoan.id ? updatedLoan : loan
-        ));
-        
-        // Update the selected loan
-        setSelectedLoan(updatedLoan);
-      }
+      setPaymentForm(prev => ({
+        ...prev,
+        amount: '',
+        description: 'Loan repayment'
+      }));
       
-      // Reset form and show success message
-      setPaymentForm(prev => ({ ...prev, amount: '' }));
-      setSuccessMessage(`Payment of $${parseFloat(paymentForm.amount).toFixed(2)} successfully processed!`);
-      
-      // Refresh loans to ensure we have the latest data
-      fetchLoans();
+      await fetchLoans();
     } catch (err) {
       console.error('Error processing payment:', err);
-      if (err.response?.data?.error) {
-        setError(`Failed to process payment: ${err.response.data.error}`);
+      
+      if (err.response) {
+        if (err.response.status === 500) {
+          setError('Server error: The payment could not be processed. Please try again later or contact support.');
+        } else if (err.response.status === 404) {
+          if (err.response.data?.error === 'Loan not found') {
+            setError('The selected loan could not be found. It may have been fully paid or removed. Please refresh the page and try again.');
+            fetchLoans();
+          } else {
+            setError('Payment endpoint not found. Please contact support.');
+          }
+        } else {
+          setError(`Payment failed: ${err.response.data?.error || err.response.data?.message || 'Unknown error'}`);
+        }
+      } else if (err.request) {
+        setError('Network error: Could not connect to the server. Please check your internet connection.');
       } else {
-        setError('Failed to process payment. Please try again later.');
+        setError('An unexpected error occurred. Please try again.');
       }
     } finally {
       setIsLoading(false);
     }
   };
-  
-  // Format date for display
-  const formatDate = (dateString) => {
-    if (!dateString) return 'N/A';
-    
-    const options = { year: 'numeric', month: 'short', day: 'numeric' };
-    return new Date(dateString).toLocaleDateString(undefined, options);
-  };
-  
-  // Calculate remaining balance for a loan
-  const getRemainingBalance = (loan) => {
-    return loan.remaining_balance !== undefined 
-      ? loan.remaining_balance 
-      : loan.amount - (loan.paid_amount || 0);
-  };
-  
-  // Get status badge color based on loan status
-  const getStatusBadgeColor = (status) => {
-    switch (status?.toLowerCase()) {
-      case 'approved':
-        return 'bg-green-100 text-green-800';
-      case 'pending':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'rejected':
-        return 'bg-red-100 text-red-800';
-      case 'paid':
-        return 'bg-blue-100 text-blue-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
-  
+
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900">Loan Repayment</h1>
-        <button 
-          className="flex items-center px-4 py-2 text-sm font-medium rounded-lg text-blue-600 hover:text-blue-700 hover:bg-blue-50 transition-colors"
-          onClick={fetchLoans}
-          disabled={isLoading}
-        >
-          <ArrowPathIcon className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-          {isLoading ? 'Loading...' : 'Refresh'}
-        </button>
-      </div>
+    <div className="container mx-auto px-4 py-8">
+      <h1 className="text-2xl font-bold text-gray-900 mb-8">Loan Repayment</h1>
       
-      {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-          <p>{error}</p>
-        </div>
-      )}
-      
-      {successMessage && (
-        <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg flex items-start">
-          <CheckCircleIcon className="h-5 w-5 mr-2 mt-0.5" />
-          <p>{successMessage}</p>
-        </div>
-      )}
-      
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Payment Form */}
-        <div className="lg:col-span-1 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="p-6 border-b border-gray-200">
-            <h2 className="text-lg font-medium text-gray-900">Make a Payment</h2>
-          </div>
-          <form onSubmit={handleSubmitPayment} className="p-6 space-y-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Payment Form Section */}
+        <div className="bg-white rounded-lg shadow p-6">
+          <h2 className="text-xl font-semibold text-gray-800 mb-6">Make a Payment</h2>
+          
+          {error && (
+            <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-4">
+              <div className="flex items-center">
+                <ExclamationCircleIcon className="w-5 h-5 text-red-400" />
+                <span className="ml-2 text-red-700">{error}</span>
+              </div>
+            </div>
+          )}
+          
+          {successMessage && (
+            <div className="mb-4 bg-green-50 border border-green-200 rounded-lg p-4">
+              <div className="flex items-center">
+                <CheckCircleIcon className="w-5 h-5 text-green-400" />
+                <span className="ml-2 text-green-700">{successMessage}</span>
+              </div>
+            </div>
+          )}
+          
+          <form onSubmit={handleSubmitPayment} className="space-y-6">
+            {/* Loan Selection */}
             <div>
-              <label htmlFor="loan_id" className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
                 Select Loan
               </label>
               <select
-                id="loan_id"
                 name="loan_id"
                 value={paymentForm.loan_id}
                 onChange={handleInputChange}
-                className={`w-full px-3 py-2 border ${formErrors.loan_id ? 'border-red-300' : 'border-gray-300'} rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
+                className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm
+                  ${formErrors.loan_id ? 'border-red-300' : ''}`}
               >
-                <option value="">-- Select a loan --</option>
+                <option value="">Select a loan</option>
                 {loans.map(loan => (
                   <option key={loan.id} value={loan.id}>
-                    ${parseFloat(loan.amount).toFixed(2)} - {loan.purpose.substring(0, 30)}{loan.purpose.length > 30 ? '...' : ''}
+                    Loan #{loan.id} - Balance: {formatCurrency(getRemainingBalance(loan))}
                   </option>
                 ))}
               </select>
@@ -266,148 +277,107 @@ const LoanRepayment = () => {
                 <p className="mt-1 text-sm text-red-600">{formErrors.loan_id}</p>
               )}
             </div>
-            
+
+            {/* Selected Loan Details */}
             {selectedLoan && (
-              <div className="bg-gray-50 p-3 rounded-md">
-                <p className="text-sm text-gray-600">Remaining Balance: <span className="font-medium">${getRemainingBalance(selectedLoan).toFixed(2)}</span></p>
-                <p className="text-sm text-gray-600">Monthly Payment: <span className="font-medium">${parseFloat(selectedLoan.monthly_payment || 0).toFixed(2)}</span></p>
-                <p className="text-sm text-gray-600">Due Date: <span className="font-medium">{formatDate(selectedLoan.due_date)}</span></p>
+              <div className="bg-gray-50 rounded-lg p-4">
+                <h3 className="text-sm font-medium text-gray-700 mb-2">Selected Loan Details</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-gray-500">Original Amount</p>
+                    <p className="text-base font-medium text-gray-900">
+                      {formatCurrency(selectedLoan.amount)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500">Remaining Balance</p>
+                    <p className="text-base font-medium text-gray-900">
+                      {formatCurrency(getRemainingBalance(selectedLoan))}
+                    </p>
+                  </div>
+                </div>
               </div>
             )}
-            
+
+            {/* Payment Amount */}
             <div>
-              <label htmlFor="amount" className="block text-sm font-medium text-gray-700 mb-1">
-                Payment Amount ($)
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Payment Amount
               </label>
-              <input
-                type="number"
-                id="amount"
-                name="amount"
-                value={paymentForm.amount}
-                onChange={handleInputChange}
-                className={`w-full px-3 py-2 border ${formErrors.amount ? 'border-red-300' : 'border-gray-300'} rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
-                placeholder="Enter amount"
-                min="1"
-                step="0.01"
-              />
+              <div className="mt-1 relative rounded-md shadow-sm">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <span className="text-gray-500 sm:text-sm">$</span>
+                </div>
+                <input
+                  type="number"
+                  name="amount"
+                  step="0.01"
+                  value={paymentForm.amount}
+                  onChange={handleInputChange}
+                  className={`block w-full pl-7 pr-12 rounded-md border-gray-300 focus:ring-blue-500 focus:border-blue-500 sm:text-sm
+                    ${formErrors.amount ? 'border-red-300' : ''}`}
+                  placeholder="0.00"
+                />
+              </div>
               {formErrors.amount && (
                 <p className="mt-1 text-sm text-red-600">{formErrors.amount}</p>
               )}
+
+              {/* Suggested Amounts */}
+              {selectedLoan && (
+                <div className="mt-3">
+                  <p className="text-sm text-gray-500 mb-2">Suggested amounts:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {getSuggestedAmounts(selectedLoan).map((amount, index) => (
+                      <button
+                        key={index}
+                        type="button"
+                        onClick={() => handleSuggestedAmountClick(amount)}
+                        className="inline-flex items-center px-3 py-1 border border-gray-300 rounded-full text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                      >
+                        {formatCurrency(amount)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
-            
+
+            {/* Submit Button */}
             <div>
-              <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
-                Description (Optional)
-              </label>
-              <input
-                type="text"
-                id="description"
-                name="description"
-                value={paymentForm.description}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                placeholder="E.g., Monthly payment"
-              />
-            </div>
-            
-            <div className="pt-4">
               <button
                 type="submit"
-                disabled={isLoading || loans.length === 0}
-                className="w-full px-4 py-3 text-center font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:bg-blue-300"
+                disabled={isLoading}
+                className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white
+                  ${isLoading ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'}`}
               >
-                {isLoading ? 'Processing...' : 'Make Payment'}
+                {isLoading ? (
+                  <>
+                    <ArrowPathIcon className="animate-spin h-5 w-5 mr-2" />
+                    Processing...
+                  </>
+                ) : (
+                  'Make Payment'
+                )}
               </button>
             </div>
           </form>
         </div>
-        
-        {/* Active Loans List */}
-        <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+
+        {/* Transaction History Section */}
+        <div className="bg-white rounded-lg shadow">
           <div className="p-6 border-b border-gray-200">
-            <h2 className="text-lg font-medium text-gray-900">Active Loans</h2>
+            <h2 className="text-xl font-semibold text-gray-800">Repayment History</h2>
           </div>
           
-          {isLoading && loans.length === 0 ? (
-            <div className="p-6">
-              <div className="animate-pulse space-y-4">
-                {[1, 2, 3].map(i => (
-                  <div key={i} className="flex justify-between">
-                    <div className="h-4 bg-gray-200 rounded w-1/4"></div>
-                    <div className="h-4 bg-gray-200 rounded w-1/4"></div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : loans.length > 0 ? (
-            <div className="overflow-hidden overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Balance</th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {loans.map((loan) => (
-                    <tr key={loan.id} className={`hover:bg-gray-50 ${selectedLoan?.id === loan.id ? 'bg-blue-50' : ''}`}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {formatDate(loan.created_at)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        ${parseFloat(loan.amount).toFixed(2)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        ${getRemainingBalance(loan).toFixed(2)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        <span className={`px-2 py-1 text-xs rounded-full ${getStatusBadgeColor(loan.loan_status || loan.status)}`}>
-                          {loan.loan_status || loan.status || 'pending'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        <button 
-                          onClick={() => {
-                            setSelectedLoan(loan);
-                            setPaymentForm(prev => ({ ...prev, loan_id: loan.id }));
-                          }}
-                          className="text-blue-600 hover:text-blue-800"
-                        >
-                          Select for Payment
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+          {selectedLoan ? (
+            <RepaymentTransactions loanId={selectedLoan.id} />
           ) : (
             <div className="p-6 text-center text-gray-500">
-              <div className="flex flex-col items-center justify-center py-5">
-                <CreditCardIcon className="h-12 w-12 text-gray-300 mb-3" />
-                <p>No active loans found.</p>
-                <p className="text-sm mt-1">Apply for a loan in the My Loans section.</p>
-              </div>
+              <InformationCircleIcon className="mx-auto h-12 w-12 text-gray-400" />
+              <p className="mt-2">Select a loan to view its repayment history</p>
             </div>
           )}
-        </div>
-      </div>
-      
-      {/* Payment History Section */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mt-6">
-        <div className="p-6 border-b border-gray-200">
-          <h2 className="text-lg font-medium text-gray-900">Payment History</h2>
-        </div>
-        
-        <div className="p-6 text-center text-gray-500">
-          <div className="flex flex-col items-center justify-center py-5">
-            <ClockIcon className="h-12 w-12 text-gray-300 mb-3" />
-            <p>Payment history will be displayed here.</p>
-            <p className="text-sm mt-1">Make a payment to see it in your history.</p>
-          </div>
         </div>
       </div>
     </div>
