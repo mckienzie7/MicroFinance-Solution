@@ -108,9 +108,11 @@ def make_payment():
         # Save the changes
         storage.new(new_repayment)
         storage.save()
+
         acc = AccountController()
         account = acc.get_accounts_by_id(user_id)
-        data1 = {"balance" : amount}
+        amount_1 = account.balance - amount
+        data1 = {"balance" : amount_1}
         acc.update_account(
             account,
             data1
