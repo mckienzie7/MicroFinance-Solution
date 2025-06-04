@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ChartBarIcon, ArrowTrendingUpIcon, CurrencyDollarIcon, BanknotesIcon } from '@heroicons/react/24/outline';
+import { ChartBarIcon, ArrowTrendingUpIcon, CurrencyDollarIcon, BanknotesIcon, CurrencyPoundIcon } from '@heroicons/react/24/outline';
 import api from '../../services/api';
 
 const CompanyBalance = () => {
@@ -7,11 +7,14 @@ const CompanyBalance = () => {
   const [totalDeposits, setTotalDeposits] = useState(0);
   const [totalLoansGiven, setTotalLoansGiven] = useState(0);
   const [totalRepaymentsReceived, setTotalRepaymentsReceived] = useState(0);
+  const [totalInterestEarned, setTotalInterestEarned] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  // Calculate growth rate (for demonstration - would be calculated from real data)
+  // Calculate growth rate and profit margin
   const growthRate = totalDeposits > 0 ? ((balance / totalDeposits) * 100 - 100).toFixed(1) : 0;
+  const profitMargin = totalRepaymentsReceived > 0 ? 
+    ((totalInterestEarned / totalRepaymentsReceived) * 100).toFixed(1) : 0;
 
   useEffect(() => {
     fetchBalanceData();
@@ -23,35 +26,35 @@ const CompanyBalance = () => {
       setError('');
       
       try {
-        // Fetch all transactions
-        const transactionsResponse = await api.get('/api/v1/transactions');
+        // Fetch all transactions and loans in parallel
+        const [transactionsResponse, loansResponse] = await Promise.all([
+          api.get('/api/v1/transactions'),
+          api.get('/api/v1/loans')
+        ]);
         
         if (transactionsResponse.data && Array.isArray(transactionsResponse.data)) {
           // Process each transaction type separately
           let depositSum = 0;
           let loanDisbursementSum = 0;
           let loanRepaymentSum = 0;
+          let interestEarned = 0;
+          
+          // Create a map of loan IDs to their interest rates
+          const loanInterestRates = {};
+          if (loansResponse.data && Array.isArray(loansResponse.data)) {
+            loansResponse.data.forEach(loan => {
+              if (loan.id && loan.interest_rate) {
+                loanInterestRates[loan.id] = parseFloat(loan.interest_rate) / 100; // Convert percentage to decimal
+              }
+            });
+          }
           
           // Log all transactions for debugging
           console.log('All transactions:', transactionsResponse.data);
+          console.log('All loans:', loansResponse.data);
           
-          // Log all transactions for detailed debugging
-          console.log('All transactions with details:');
-          transactionsResponse.data.forEach(transaction => {
-            console.log(`Transaction ID: ${transaction.id}`);
-            console.log(`  Type: ${transaction.transaction_type}`);
-            console.log(`  Amount: ${transaction.amount}`);
-            console.log(`  Raw Amount Type: ${typeof transaction.amount}`);
-            console.log(`  Parsed Amount: ${parseFloat(transaction.amount)}`);
-          });
-
-          // Process each transaction
-          transactionsResponse.data.forEach(transaction => {
-            // Check if transaction_type is exactly 'loan_repayment' (case sensitive)
-            if (transaction.transaction_type === 'loan_repayment') {
-              console.log('Found loan repayment transaction:', transaction);
-            }
-            
+          // Process transactions in sequence to handle async operations
+          for (const transaction of transactionsResponse.data) {
             // Make sure amount is a number
             let amount;
             try {
@@ -69,7 +72,12 @@ const CompanyBalance = () => {
             const transactionType = transaction.transaction_type?.toLowerCase();
             
             // Log the normalized transaction type
-            console.log(`Normalized transaction type: ${transactionType}`);
+            console.log(`Processing transaction:`, {
+              id: transaction.id,
+              type: transactionType,
+              amount: amount,
+              description: transaction.description
+            });
             
             if (transactionType === 'deposit') {
               depositSum += amount;
@@ -80,11 +88,54 @@ const CompanyBalance = () => {
             } else if (transactionType === 'loan_repayment' || transactionType === 'loan repayment') {
               loanRepaymentSum += amount;
               console.log(`Added ${amount} to loan repayments total`);
+              
+              // Only process interest if we have a repayment ID
+              if (transaction.repayment_id) {
+                try {
+                  const repaymentResponse = await api.get(`/api/v1/repayments/${transaction.repayment_id}`);
+                  const repayment = repaymentResponse.data;
+                  
+                  if (repayment && repayment.interest_amount) {
+                    // Use the interest amount directly from the repayment record
+                    const interestAmount = parseFloat(repayment.interest_amount) || 0;
+                    console.log(`Repayment ${transaction.repayment_id} - ` +
+                               `Amount: ${amount}, ` +
+                               `Interest: ${interestAmount}`);
+                    
+                    interestEarned += interestAmount;
+                  } else if (repayment && repayment.loan_id) {
+                    // Fallback: Calculate interest if not directly available
+                    const loanId = repayment.loan_id;
+                    const interestRate = loanInterestRates[loanId] || 0;
+                    
+                    if (interestRate > 0) {
+                      // For amortized loans, this is simplified - ideally should use loan schedule
+                      const principalPortion = amount / (1 + interestRate);
+                      const interestPortion = amount - principalPortion;
+                      
+                      console.log(`Loan ${loanId} - Amount: ${amount}, ` +
+                                 `Interest Rate: ${interestRate * 100}%, ` +
+                                 `Principal: ${principalPortion}, ` +
+                                 `Interest: ${interestPortion}`);
+                      
+                      interestEarned += interestPortion;
+                    } else {
+                      console.log(`No interest rate found for loan ${loanId}`);
+                    }
+                  } else {
+                    console.log(`Incomplete repayment data for transaction ${transaction.id}`);
+                  }
+                } catch (err) {
+                  console.error(`Error fetching repayment details for transaction ${transaction.id}:`, err);
+                }
+              } else {
+                console.log(`No repayment_id found for transaction ${transaction.id}`);
+              }
             } else {
               // Ignore other transaction types
               console.log(`Ignored transaction type: ${transaction.transaction_type}`);
             }
-          });
+          }
           
           // Calculate company balance
           const companyBalance = depositSum + loanRepaymentSum - loanDisbursementSum;
@@ -93,6 +144,7 @@ const CompanyBalance = () => {
                       '\nDeposits:', depositSum,
                       '\nLoan Disbursements:', loanDisbursementSum,
                       '\nLoan Repayments:', loanRepaymentSum,
+                      '\nInterest Earned:', interestEarned,
                       '\nNet Balance:', companyBalance);
           
           // Update state with calculated values
@@ -100,6 +152,7 @@ const CompanyBalance = () => {
           setTotalDeposits(depositSum);
           setTotalLoansGiven(loanDisbursementSum);
           setTotalRepaymentsReceived(loanRepaymentSum);
+          setTotalInterestEarned(interestEarned);
         } else {
           console.error('Invalid transaction data format:', transactionsResponse.data);
           setError('Invalid data received from server');
@@ -197,17 +250,17 @@ const CompanyBalance = () => {
               </div>
             </div>
             
-            {/* Repayments Received Card */}
+            {/* Interest Earned Card */}
             <div className="bg-white rounded-xl shadow-md overflow-hidden">
               <div className="p-6">
                 <div className="flex items-center mb-4">
                   <div className="p-2 bg-purple-100 rounded-full mr-3">
-                    <ArrowTrendingUpIcon className="h-6 w-6 text-purple-600" />
+                    <CurrencyPoundIcon className="h-6 w-6 text-purple-600" />
                   </div>
-                  <h3 className="text-lg font-medium text-gray-800">Total Repayments Received</h3>
+                  <h3 className="text-lg font-medium text-gray-800">Total Interest Earned</h3>
                 </div>
-                <p className="text-3xl font-bold text-gray-800 mb-2">{formatCurrency(totalRepaymentsReceived)}</p>
-                <p className="text-sm text-gray-500">Money received from loan repayments</p>
+                <p className="text-3xl font-bold text-gray-800 mb-2">{formatCurrency(totalInterestEarned)}</p>
+                <p className="text-sm text-gray-500">Profit from loan interest ({profitMargin}% of repayments)</p>
               </div>
             </div>
           </div>
@@ -232,5 +285,6 @@ const CompanyBalance = () => {
     </div>
   );
 };
+
 
 export default CompanyBalance;
