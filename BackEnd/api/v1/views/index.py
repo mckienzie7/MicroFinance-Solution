@@ -12,6 +12,10 @@ def status():
     return jsonify({"status": "OK"})
 
 
+@app_views.route('/', methods=['GET'], strict_slashes=False)
+def serve_index():
+    return send_from_directory(app.static_folder, 'index.html')
+
 @app_views.route('/stats', methods=['GET'], strict_slashes=False)
 def number_objects():
     """ Retrieves the number of each objects by type """

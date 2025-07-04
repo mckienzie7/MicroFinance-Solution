@@ -1,0 +1,72 @@
+[2025-07-02 12:30:12 +0000] [19106] [INFO] Starting gunicorn 23.0.0
+[2025-07-02 12:30:12 +0000] [19106] [INFO] Listening at: http://0.0.0.0:5000 (19106)
+[2025-07-02 12:30:12 +0000] [19106] [INFO] Using worker: sync
+[2025-07-02 12:30:12 +0000] [19109] [INFO] Booting worker with pid: 19109
+[2025-07-02 12:30:12 +0000] [19109] [ERROR] Exception in worker process
+Traceback (most recent call last):
+  File "/home/ubuntu/project/MicroFinance-Solution/microfinance/lib/python3.12/site-packages/gunicorn/arbiter.py", line 608, in spawn_worker
+    worker.init_process()
+  File "/home/ubuntu/project/MicroFinance-Solution/microfinance/lib/python3.12/site-packages/gunicorn/workers/base.py", line 135, in init_process
+    self.load_wsgi()
+  File "/home/ubuntu/project/MicroFinance-Solution/microfinance/lib/python3.12/site-packages/gunicorn/workers/base.py", line 147, in load_wsgi
+    self.wsgi = self.app.wsgi()
+                ^^^^^^^^^^^^^^^
+  File "/home/ubuntu/project/MicroFinance-Solution/microfinance/lib/python3.12/site-packages/gunicorn/app/base.py", line 66, in wsgi
+    self.callable = self.load()
+                    ^^^^^^^^^^^
+  File "/home/ubuntu/project/MicroFinance-Solution/microfinance/lib/python3.12/site-packages/gunicorn/app/wsgiapp.py", line 57, in load
+    return self.load_wsgiapp()
+           ^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/project/MicroFinance-Solution/microfinance/lib/python3.12/site-packages/gunicorn/app/wsgiapp.py", line 47, in load_wsgiapp
+    return util.import_app(self.app_uri)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/project/MicroFinance-Solution/microfinance/lib/python3.12/site-packages/gunicorn/util.py", line 370, in import_app
+    mod = importlib.import_module(module)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/importlib/__init__.py", line 90, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1324, in _find_and_load_unlocked
+ModuleNotFoundError: No module named 'main'
+[2025-07-02 12:30:12 +0000] [19109] [INFO] Worker exiting (pid: 19109)
+[2025-07-02 12:30:12 +0000] [19106] [ERROR] Worker (pid:19109) exited with code 3
+[2025-07-02 12:30:12 +0000] [19106] [ERROR] Shutting down: Master
+[2025-07-02 12:30:12 +0000] [19106] [ERROR] Reason: Worker failed to boot.
+[2025-07-02 12:30:27 +0000] [19115] [INFO] Starting gunicorn 23.0.0
+[2025-07-02 12:30:27 +0000] [19115] [INFO] Listening at: http://0.0.0.0:5000 (19115)
+[2025-07-02 12:30:27 +0000] [19115] [INFO] Using worker: sync
+[2025-07-02 12:30:27 +0000] [19116] [INFO] Booting worker with pid: 19116
+[2025-07-02 12:30:27 +0000] [19116] [ERROR] Exception in worker process
+Traceback (most recent call last):
+  File "/home/ubuntu/project/MicroFinance-Solution/microfinance/lib/python3.12/site-packages/gunicorn/arbiter.py", line 608, in spawn_worker
+    worker.init_process()
+  File "/home/ubuntu/project/MicroFinance-Solution/microfinance/lib/python3.12/site-packages/gunicorn/workers/base.py", line 135, in init_process
+    self.load_wsgi()
+  File "/home/ubuntu/project/MicroFinance-Solution/microfinance/lib/python3.12/site-packages/gunicorn/workers/base.py", line 147, in load_wsgi
+    self.wsgi = self.app.wsgi()
+                ^^^^^^^^^^^^^^^
+  File "/home/ubuntu/project/MicroFinance-Solution/microfinance/lib/python3.12/site-packages/gunicorn/app/base.py", line 66, in wsgi
+    self.callable = self.load()
+                    ^^^^^^^^^^^
+  File "/home/ubuntu/project/MicroFinance-Solution/microfinance/lib/python3.12/site-packages/gunicorn/app/wsgiapp.py", line 57, in load
+    return self.load_wsgiapp()
+           ^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/project/MicroFinance-Solution/microfinance/lib/python3.12/site-packages/gunicorn/app/wsgiapp.py", line 47, in load_wsgiapp
+    return util.import_app(self.app_uri)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/project/MicroFinance-Solution/microfinance/lib/python3.12/site-packages/gunicorn/util.py", line 370, in import_app
+    mod = importlib.import_module(module)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/importlib/__init__.py", line 90, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1324, in _find_and_load_unlocked
+ModuleNotFoundError: No module named 'main'
+[2025-07-02 12:30:27 +0000] [19116] [INFO] Worker exiting (pid: 19116)
+[2025-07-02 12:30:27 +0000] [19115] [ERROR] Worker (pid:19116) exited with code 3
+[2025-07-02 12:30:27 +0000] [19115] [ERROR] Shutting down: Master
+[2025-07-02 12:30:27 +0000] [19115] [ERROR] Reason: Worker failed to boot.

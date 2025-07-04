@@ -1,0 +1,27 @@
+[2025-07-02 00:52:05 +0000] [4953] [INFO] Starting gunicorn 23.0.0
+[2025-07-02 00:52:05 +0000] [4953] [INFO] Listening at: http://0.0.0.0:5000 (4953)
+[2025-07-02 00:52:05 +0000] [4953] [INFO] Using worker: sync
+[2025-07-02 00:52:05 +0000] [4954] [INFO] Booting worker with pid: 4954
+[2025-07-02 01:00:15 +0000] [4953] [CRITICAL] WORKER TIMEOUT (pid:4954)
+[2025-07-02 01:00:16 +0000] [4953] [INFO] Handling signal: hup
+[2025-07-02 01:00:16 +0000] [4953] [INFO] Hang up: Master
+[2025-07-02 01:00:16 +0000] [4953] [ERROR] Worker (pid:4954) was sent SIGHUP!
+[2025-07-02 01:00:16 +0000] [9843] [INFO] Booting worker with pid: 9843
+[2025-07-02 01:09:25 +0000] [4953] [CRITICAL] WORKER TIMEOUT (pid:9843)
+[2025-07-02 01:09:25 +0000] [9843] [INFO] Worker exiting (pid: 9843)
+[2025-07-02 01:09:26 +0000] [4953] [ERROR] Worker (pid:9843) exited with code 1
+[2025-07-02 01:09:26 +0000] [4953] [ERROR] Worker (pid:9843) exited with code 1.
+[2025-07-02 01:09:26 +0000] [9974] [INFO] Booting worker with pid: 9974
+[2025-07-02 01:12:02 +0000] [4953] [CRITICAL] WORKER TIMEOUT (pid:9974)
+[2025-07-02 01:12:08 +0000] [9974] [INFO] Worker exiting (pid: 9974)
+[2025-07-02 01:12:08 +0000] [4953] [ERROR] Worker (pid:9974) exited with code 1
+[2025-07-02 01:12:08 +0000] [4953] [ERROR] Worker (pid:9974) exited with code 1.
+[2025-07-02 01:12:08 +0000] [10238] [INFO] Booting worker with pid: 10238
+[2025-07-02 01:21:37 +0000] [4953] [CRITICAL] WORKER TIMEOUT (pid:10238)
+[2025-07-02 01:21:37 +0000] [10238] [INFO] Worker exiting (pid: 10238)
+[2025-07-02 01:21:38 +0000] [4953] [ERROR] Worker (pid:10238) exited with code 1
+[2025-07-02 01:21:38 +0000] [4953] [ERROR] Worker (pid:10238) exited with code 1.
+[2025-07-02 01:21:38 +0000] [10293] [INFO] Booting worker with pid: 10293
+[2025-07-02 12:29:54 +0000] [4953] [INFO] Handling signal: term
+[2025-07-02 12:29:54 +0000] [10293] [INFO] Worker exiting (pid: 10293)
+[2025-07-02 12:29:54 +0000] [4953] [INFO] Shutting down: Master

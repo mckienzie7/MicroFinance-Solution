@@ -1,6 +1,5 @@
 #!/usr/bin/python3
 """ objects that handle all default RestFul API actions for Repayments """
-from idlelib.autocomplete import FORCE
 from typing import Any
 from flask import abort, jsonify, make_response, request
 from flasgger.utils import swag_from
