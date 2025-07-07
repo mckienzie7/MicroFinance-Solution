@@ -169,6 +169,7 @@ const authService = {
       
       // Extract user data from the response
       console.log('Login response data:', response.data);
+      console.log('Session ID in response:', response.data.session_id);
       
       // Use the actual username from the backend response
       // This is the username that was entered during registration
@@ -198,29 +199,32 @@ const authService = {
       
       console.log('User data after login:', user);
       
-      // Force a small delay to allow the cookie to be set by the browser
-      await new Promise(resolve => setTimeout(resolve, 200));
-      
-      // Look for session ID in cookies
-      console.log('Checking for session cookie in document.cookie:', document.cookie);
-      
-      const cookies = document.cookie.split(';');
-      console.log('All cookies after login:', cookies);
-      
-      const sessionCookie = cookies.find(cookie => cookie.trim().startsWith('session_id='));
-      if (sessionCookie) {
-        const sessionId = sessionCookie.split('=')[1];
-        console.log('Session ID found in cookies:', sessionId);
-        
-        // Store it in localStorage and as a cookie
+      // Primary method: Get session_id from response body
+      console.log('Full response data for session check:', response.data);
+      const sessionId = response.data.session_id;
+      console.log('Extracted session_id:', sessionId);
+      if (sessionId) {
+        console.log('Session ID found in response:', sessionId);
         secureStorage.setSessionId(sessionId);
       } else {
-        console.log('No session cookie found, generating a temporary one');
+        // Fallback method: Check for session ID in cookies
+        console.log('No session_id in response, checking cookies...');
         
-        // Generate a temporary session ID
-        const tempSessionId = 'session-' + Date.now();
-        console.log('Generated temporary session ID:', tempSessionId);
-        secureStorage.setSessionId(tempSessionId);
+        // Force a small delay to allow the cookie to be set by the browser
+        await new Promise(resolve => setTimeout(resolve, 200));
+        
+        const cookies = document.cookie.split(';');
+        console.log('All cookies after login:', cookies);
+        
+        const sessionCookie = cookies.find(cookie => cookie.trim().startsWith('session_id='));
+        if (sessionCookie) {
+          const cookieSessionId = sessionCookie.split('=')[1];
+          console.log('Session ID found in cookies:', cookieSessionId);
+          secureStorage.setSessionId(cookieSessionId);
+        } else {
+          console.error('No session ID found in response or cookies');
+          throw new Error('Authentication failed: No session created by server');
+        }
       }
       
       // Store user data

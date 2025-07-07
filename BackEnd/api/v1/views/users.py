@@ -207,7 +207,6 @@ def login() -> tuple[Any, int] | Any:
     auth = AuthController()
     if not auth.valid_login(email, password):
         return jsonify({'message': 'Invalid email or password. Please check your credentials.'}), 401
-        return jsonify({'message': 'Invalid email or password. Please check your credentials.'}), 401
     session_id = auth.create_session(email)
     
     # Get the user's username from the database using the AuthController
@@ -217,11 +216,14 @@ def login() -> tuple[Any, int] | Any:
         
         # Print debug information
         print(f"DEBUG - Found user: ID={user.id}, Username={user.username}, Email={user.email}")
+        print(f"DEBUG - Session ID created: {session_id}")
         
         # Always use the actual username from the database
         # This is what the user entered during registration
         username = user.username
         admin = user.admin
+        user_id = user.id
+        
         # If username is None or empty, use a fallback
         if not username:
             username = email.split('@')[0]
@@ -231,13 +233,16 @@ def login() -> tuple[Any, int] | Any:
     except Exception as e:
         print(f"DEBUG - Error retrieving user: {e}")
         username = email.split('@')[0]
+        admin = False
+        user_id = None
         print(f"DEBUG - Using email name as fallback: {username}")
     
     resp = jsonify({
         "email": email, 
         "username": username,
         "admin": admin,
-        "id": user.id,
+        "id": user_id,
+        "session_id": session_id,  # Include session_id in response body
         "message": "logged in"
     })
     # Set cookie with proper attributes for CORS
@@ -264,16 +269,9 @@ def logout() -> Response:
     session_id = request.cookies.get("session_id")
     auth = AuthController()
     user = auth.get_user_from_session_id(session_id)
-    auth = AuthController()
-    user = auth.get_user_from_session_id(session_id)
+    
     if user is None:
         abort(403)
-    auth.destroy_session(user.id)
-    
-    # Create a response that clears the session cookie
-    resp = jsonify({"message": "Logged out successfully"})
-    resp.set_cookie('session_id', '', expires=0)  # Clear the cookie
-    return resp
     auth.destroy_session(user.id)
     
     # Create a response that clears the session cookie
