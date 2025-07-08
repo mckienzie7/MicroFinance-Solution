@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import axios from 'axios';
+import apiClient from '../../services/apiClient';
 
 const ResetPassword = () => {
   const [searchParams] = useSearchParams();
@@ -45,16 +45,10 @@ const ResetPassword = () => {
     setStatus({ type: '', message: '' });
 
     try {
-      const response = await axios.post('/api/v1/users/reset-password',
+      const response = await apiClient.post('/users/reset-password',
         {
           token,
-          password: formData.password
-        },
-        {
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          withCredentials: true
+          new_password: formData.password
         }
       );
 
@@ -194,4 +188,4 @@ const ResetPassword = () => {
   );
 };
 
-export default ResetPassword; 
+export default ResetPassword;

@@ -126,36 +126,39 @@ const Register = () => {
 
       const user = await register(formDataToSend, true);
       setRegistrationSuccess(true);
-      setTimeout(() => {
-        navigate('/login', { state: { registered: true } });
-      }, 2000);
     } catch (error) {
       console.error('Registration error:', error);
       setRegistrationError(error.message || 'Registration failed. Please try again.');
     }
   };
 
+  if (registrationSuccess) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+        <div className="max-w-md w-full bg-white p-8 rounded-lg shadow-lg text-center">
+          <h2 className="text-2xl font-bold text-green-600 mb-4">Registration Successful!</h2>
+          <p className="text-gray-700">
+            Thank you for registering. A verification email has been sent to your email address. Please check your inbox and follow the instructions to complete your registration.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gray-100 py-12">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-10">
-          <h1 className="text-4xl font-extrabold text-gray-900 tracking-tight">
+    <div className="min-h-screen bg-gray-100 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+      <div className="sm:mx-auto sm:w-full sm:max-w-2xl">
+        <div>
+          <h2 className="text-3xl font-extrabold text-center text-gray-900">
             Create your account
-          </h1>
-          <p className="mt-3 text-lg text-gray-600">
+          </h2>
+          <p className="mt-2 text-center text-sm text-gray-600">
             Join our microfinance platform to access financial services
           </p>
         </div>
 
-        <div className="bg-white rounded-xl shadow-xl overflow-hidden">
+        <div className="mt-8 bg-white rounded-xl shadow-xl overflow-hidden">
           <div className="p-8">
-            {registrationSuccess && (
-              <div className="mb-6 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded">
-                Registration successful! Redirecting to login page...
-              </div>
-            )}
-            
             {(authError || registrationError) && (
               <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
                 {authError || registrationError}

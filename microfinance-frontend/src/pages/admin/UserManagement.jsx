@@ -255,8 +255,17 @@ const UserManagement = () => {
     
     setIsLoading(true);
     try {
-      await api.delete(`/users/${userId}`);
+      await api.delete(`/api/v1/users/${userId}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('session_id')}`,
+        }
+      });
       fetchUsers();
+      // Close the detail modal if the user is deleted
+      if (currentUser && currentUser.id === userId) {
+        setShowDetailModal(false);
+        setCurrentUser(null);
+      }
     } catch (err) {
       console.error('Error deleting user:', err);
       setError(`Failed to delete user: ${err.response?.data?.message || 'Unknown error'}`);

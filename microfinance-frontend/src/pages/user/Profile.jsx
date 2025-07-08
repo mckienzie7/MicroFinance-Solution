@@ -1,16 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import api from '../../services/api';
+import apiClient from '../../services/apiClient';
 
 const Profile = () => {
-  const { user, isAuthenticated } = useAuth();
+  const { user, setUser, isAuthenticated } = useAuth();
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
   const [formData, setFormData] = useState({
     username: '',
     email: '',
-    phoneNumber: ''
+    phoneNumber: '',
+    fullname: '',
+    bio: '',
+    location: ''
   });
   const [formErrors, setFormErrors] = useState({});
   
@@ -31,7 +34,10 @@ const Profile = () => {
       setFormData({
         username: user.username || '',
         email: user.email || '',
-        phoneNumber: user.phoneNumber || ''
+        phoneNumber: user.phoneNumber || '',
+        fullname: user.fullname || '',
+        bio: user.bio || '',
+        location: user.location || ''
       });
     }
   }, [user]);
@@ -82,6 +88,26 @@ const Profile = () => {
     if (error) setError('');
   };
   
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!validateForm()) {
+      return;
+    }
+    setLoading(true);
+    setError('');
+    setSuccess(false);
+
+    try {
+      const response = await apiClient.put(`/users/${user.id}`, formData);
+      setSuccess('Profile updated successfully!');
+      setUser({ ...user, ...response.data });
+    } catch (err) {
+      setError(err.response?.data?.message || 'An error occurred while updating the profile.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handlePasswordChange = (e) => {
     const { name, value } = e.target;
     setPasswordData({
@@ -96,35 +122,6 @@ const Profile = () => {
         ...passwordErrors,
         [name]: ''
       });
-    }
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    if (!validateForm()) return;
-    
-    setLoading(true);
-    setError('');
-    setSuccess(false);
-    
-    try {
-      // Only send fields that can be updated
-      const updateData = {
-        phoneNumber: formData.phoneNumber
-      };
-      
-      // Make API call to update profile
-      await api.put(`/users/${user.id}`, updateData);
-      
-      setSuccess(true);
-      // Update local storage user data if needed
-      // This depends on how your auth context works
-    } catch (err) {
-      console.error('Error updating profile:', err);
-      setError(err.response?.data?.message || 'Failed to update profile. Please try again.');
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -196,8 +193,17 @@ const Profile = () => {
                 <p className="mt-1 text-xs text-gray-500">Email cannot be changed</p>
               </div>
               
-              {/* Full Name field removed as requested */}
-              
+              <div className="flex flex-col">
+                <label className="text-sm font-medium text-gray-700 mb-1">Full Name</label>
+                <input
+                  type="text"
+                  name="fullname"
+                  value={formData.fullname}
+                  onChange={handleChange}
+                  className="px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
               <div className="flex flex-col">
                 <label className="text-sm font-medium text-gray-700 mb-1">Phone Number</label>
                 <input 
@@ -212,8 +218,28 @@ const Profile = () => {
                   <p className="mt-1 text-sm text-red-600">{formErrors.phoneNumber}</p>
                 )}
               </div>
-              
-              {/* Address field removed as requested */}
+
+              <div className="flex flex-col md:col-span-2">
+                <label className="text-sm font-medium text-gray-700 mb-1">Bio</label>
+                <textarea
+                  name="bio"
+                  value={formData.bio}
+                  onChange={handleChange}
+                  rows="3"
+                  className="px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                ></textarea>
+              </div>
+
+              <div className="flex flex-col">
+                <label className="text-sm font-medium text-gray-700 mb-1">Location</label>
+                <input
+                  type="text"
+                  name="location"
+                  value={formData.location}
+                  onChange={handleChange}
+                  className="px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
             </div>
             
             <div className="mt-6 flex items-center justify-between">
@@ -225,7 +251,10 @@ const Profile = () => {
                     setFormData({
                       username: user.username || '',
                       email: user.email || '',
-                      phoneNumber: user.phoneNumber || ''
+                      phoneNumber: user.phoneNumber || '',
+                      fullname: user.fullname || '',
+                      bio: user.bio || '',
+                      location: user.location || ''
                     });
                   }
                   setFormErrors({});
@@ -291,10 +320,11 @@ const Profile = () => {
                     
                     setPasswordLoading(true);
                     setError('');
-                    
+                    setPasswordSuccess(false);
+
                     try {
                       // Make API call to change password
-                      await api.put(`/users/${user.id}/password`, {
+                      await apiClient.put(`/users/${user.id}/change-password`, {
                         current_password: passwordData.currentPassword,
                         new_password: passwordData.newPassword
                       });

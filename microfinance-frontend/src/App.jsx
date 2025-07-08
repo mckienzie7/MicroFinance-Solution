@@ -32,6 +32,13 @@ import LoanRepayment from './pages/user/LoanRepayment';
 import CreditScore from './pages/user/CreditScore';
 import Profile from './pages/user/Profile';
 import UserLayout from './layouts/UserLayout';
+import About from './pages/About';
+import Services from './pages/Services';
+import Contact from './pages/Contact';
+import PrivacyPolicy from './pages/PrivacyPolicy';
+import TermsOfService from './pages/TermsOfService';
+import Notifications from './pages/Notifications';
+import EmailVerified from './pages/EmailVerified';
 
 function App() {
   return (
@@ -40,17 +47,21 @@ function App() {
         <Router>
           <Routes>
             {/* Public Routes with MainLayout */}
-            <Route element={<ProtectedRoute isPublic={true} />}>
-              <Route element={<MainLayout />}>
-                <Route path="/" element={<LandingPage />} />
-                <Route path="/login" element={<Login />} />
-                <Route path="/register" element={<Register />} />
-                <Route path="/forgot-password" element={<ForgotPassword />} />
-                <Route path="/reset-password" element={<ResetPassword />} />
-                {process.env.NODE_ENV === 'development' && (
-                  <Route path="/dev-login" element={<DevLogin />} />
-                )}
-              </Route>
+            <Route element={<MainLayout />}>
+              <Route path="/" element={<LandingPage />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
+              <Route path="/about" element={<About />} />
+              <Route path="/services" element={<Services />} />
+              <Route path="/contact" element={<Contact />} />
+              <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+              <Route path="/terms-of-service" element={<TermsOfService />} />
+              <Route path="/email-verified" element={<EmailVerified />} />
+              {process.env.NODE_ENV === 'development' && (
+                <Route path="/dev-login" element={<DevLogin />} />
+              )}
             </Route>
 
             {/* Admin Routes */}
@@ -78,6 +89,7 @@ function App() {
                 <Route path="pay-loan" element={<LoanRepayment />} />
                 <Route path="credit-score" element={<CreditScore />} />
                 <Route path="profile" element={<Profile />} />
+                <Route path="notifications" element={<Notifications />} />
                 <Route index element={<Navigate to="dashboard" replace />} />
               </Route>
             </Route>

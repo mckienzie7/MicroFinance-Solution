@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import api from '../../services/api';
+import apiClient from '../../services/apiClient';
 
 const ForgotPassword = () => {
   const [email, setEmail] = useState('');
@@ -15,7 +15,7 @@ const ForgotPassword = () => {
     console.log('Attempting to send forgot password request...');
     
     try {
-      const response = await api.post('/api/v1/users/forgot-password', { email });
+      const response = await apiClient.post('/users/forgot-password', { email });
       console.log('Forgot password response:', response);
       
       setStatus({
@@ -140,4 +140,4 @@ const ForgotPassword = () => {
   );
 };
 
-export default ForgotPassword; 
+export default ForgotPassword;
