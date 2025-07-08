@@ -23,7 +23,7 @@ def send_password_reset_email(email):
     sender_password = os.getenv('EMAIL_PASSWORD')
     receiver_email = email
 
-    reset_link = f"http://localhost:5173/reset-password?token={token}"
+    reset_link = f"http://addismicrofinance.tech/reset-password?token={token}"
 
     message = MIMEText(f"Click the link to reset your password: {reset_link}")
     message['Subject'] = "Password Reset Request"

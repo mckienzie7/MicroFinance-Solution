@@ -26,7 +26,7 @@ def send_verification_email(user_id):
     sender_password = os.getenv('EMAIL_PASSWORD')
     receiver_email = user.email
 
-    verification_link = f"http://localhost:5173/verify-email?token={token}"
+    verification_link = f"https://addismicrofinance.tech/verify-email?token={token}"
 
     message = MIMEText(f"Click the link to verify your email: {verification_link}")
     message['Subject'] = "Email Verification"
