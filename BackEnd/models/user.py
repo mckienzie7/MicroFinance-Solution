@@ -38,6 +38,7 @@ class User(BaseModel, Base):
     hobbies = Column(String(255))
     preferences = Column(String(255))
     is_verified = Column(Boolean, default=False)
+    verification_token = Column(String(255))
 
     # Relationships
     Notification = relationship("Notification",

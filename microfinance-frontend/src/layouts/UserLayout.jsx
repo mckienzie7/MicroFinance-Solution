@@ -11,7 +11,8 @@ import {
   UserCircleIcon, 
   ArrowLeftOnRectangleIcon,
   Bars3Icon,
-  XMarkIcon
+  XMarkIcon,
+  CurrencyDollarIcon
 } from '@heroicons/react/24/outline';
 
 const UserLayout = () => {
@@ -34,6 +35,8 @@ const UserLayout = () => {
   const navigation = [
     { name: 'Dashboard', href: '/user/dashboard', icon: HomeIcon },
     { name: 'Savings Account', href: '/user/savings', icon: BanknotesIcon },
+    { name: 'Deposit', href: '/user/deposit', icon: CurrencyDollarIcon },
+    { name: 'Withdraw', href: '/user/withdraw', icon: CurrencyDollarIcon },
     { name: 'My Loans', href: '/user/loans', icon: CreditCardIcon },
     { name: 'Loan Repayment', href: '/user/pay-loan', icon: CreditCardIcon },
     { name: 'AI Credit Score', href: '/user/credit-score', icon: DocumentTextIcon },

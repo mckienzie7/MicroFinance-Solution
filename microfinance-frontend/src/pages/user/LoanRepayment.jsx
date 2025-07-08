@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import api from '../../services/api';
 import RepaymentTransactions from '../../components/RepaymentTransactions';
-import { 
+import StripePayment from '../../components/StripePayment';
+import {
   ArrowPathIcon, 
   CheckCircleIcon, 
   ExclamationCircleIcon,
@@ -162,9 +163,7 @@ const LoanRepayment = () => {
   };
   
   // Submit loan payment
-  const handleSubmitPayment = async (e) => {
-    e.preventDefault();
-    
+  const handleStripeRepayment = async (paymentMethodId) => {
     if (!validateForm()) {
       return;
     }
@@ -174,23 +173,15 @@ const LoanRepayment = () => {
     setSuccessMessage('');
     
     try {
-      const selectedLoanExists = loans.some(loan => String(loan.id) === String(paymentForm.loan_id));
-      
-      if (!selectedLoanExists) {
-        setError('The selected loan could not be found. Please select a valid loan and try again.');
-        return;
-      }
-      
       const paymentData = {
         loan_id: paymentForm.loan_id,
         amount: parseFloat(paymentForm.amount),
-        payment_method: 'bank_transfer',
+        payment_method_id: paymentMethodId,
         user_id: user.id,
-        description: paymentForm.description.trim() || 'Loan repayment'
       };
       
-      const response = await api.post('/api/v1/repayments/make-payment', paymentData);
-      
+      await api.post('/api/v1/stripe/repay_loan', paymentData);
+
       setSuccessMessage(`Payment of ${formatCurrency(parseFloat(paymentForm.amount))} processed successfully!`);
       
       setPaymentForm(prev => ({
@@ -253,7 +244,7 @@ const LoanRepayment = () => {
             </div>
           )}
           
-          <form onSubmit={handleSubmitPayment} className="space-y-6">
+          <form onSubmit={(e) => e.preventDefault()} className="space-y-6">
             {/* Loan Selection */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -345,21 +336,12 @@ const LoanRepayment = () => {
 
             {/* Submit Button */}
             <div>
-              <button
-                type="submit"
-                disabled={isLoading}
-                className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white
-                  ${isLoading ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'}`}
-              >
-                {isLoading ? (
-                  <>
-                    <ArrowPathIcon className="animate-spin h-5 w-5 mr-2" />
-                    Processing...
-                  </>
-                ) : (
-                  'Make Payment'
-                )}
-              </button>
+              {selectedLoan && paymentForm.amount > 0 && !formErrors.amount && (
+                <StripePayment
+                  amount={parseFloat(paymentForm.amount)}
+                  handlePayment={handleStripeRepayment}
+                />
+              )}
             </div>
           </form>
         </div>

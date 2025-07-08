@@ -1,9 +1,9 @@
-
 #!/usr/bin/python3
 """ Flask Application """
 
 from BackEnd.models import storage
 from BackEnd.api.v1.views import app_views
+from BackEnd.api.v1.views.stripe import stripe_views
 from os import environ
 from flask import Flask, make_response, jsonify
 from flask_cors import CORS
@@ -12,6 +12,7 @@ from flasgger import Swagger
 app = Flask(__name__)
 app.config['JSONIFY_PRETTYPRINT_REGULAR'] = True
 app.register_blueprint(app_views, url_prefix='/api/v1')
+app.register_blueprint(stripe_views, url_prefix='/api/v1')
 
 # Configure CORS to allow requests from any origin
 # This is safe because we're using a proxy in the frontend

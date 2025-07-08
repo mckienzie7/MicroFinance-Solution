@@ -16,6 +16,7 @@ jsonschema-specifications==2024.10.1
 MarkupSafe==3.0.2
 mistune==3.1.2
 packaging==24.2
+peewee
 pycparser==2.22
 pymongo==4.11.2
 PyMySQL==1.1.1
@@ -25,6 +26,7 @@ referencing==0.36.2
 rpds-py==0.23.1
 six==1.17.0
 SQLAlchemy==2.0.39
+stripe
 typing_extensions==4.12.2
 Werkzeug==3.1.3
 

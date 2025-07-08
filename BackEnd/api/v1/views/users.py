@@ -10,6 +10,9 @@ from BackEnd.api.v1.views import app_views
 from flask import abort, jsonify, make_response, request, redirect, send_file
 from flasgger.utils import swag_from
 from BackEnd.Controllers.AuthController import AuthController
+from BackEnd.Controllers.EmailVerificationController import verify_email
+from BackEnd.Controllers.PasswordResetController import send_password_reset_email
+from BackEnd.Controllers.UserControllers import UserController
 import os
 from werkzeug.utils import secure_filename
 import re
@@ -42,7 +45,7 @@ def get_users():
 @app_views.route('/users/<user_id>', methods=['GET'], strict_slashes=False)
 @swag_from('documentation/user/get_user.yml', methods=['GET'])
 def get_user(user_id):
-    """ Retrieves an user """
+    """ Retrieves a user """
     # For GET requests, use request.args instead of get_json()
     admin = request.args.get("admin")
     # Any value of admin parameter means it's an admin request
@@ -65,15 +68,22 @@ def delete_user(user_id):
     Deletes a user Object
     """
 
-    user = storage.get(User, user_id)
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return jsonify({"message": "No authorization token provided"}), 401
 
-    if not user:
-        abort(404)
+    token = auth_header.split(' ')[1]
+    auth_controller = AuthController()
+    requesting_user = auth_controller.get_user_from_session_id(token)
 
-    storage.delete(user)
-    storage.save()
+    if not requesting_user or not requesting_user.admin:
+        return jsonify({"message": "Unauthorized. Admin access required"}), 403
 
-    return make_response(jsonify({}), 200)
+    user_controller = UserController()
+    if user_controller.delete_user(user_id):
+        return make_response(jsonify({'message': 'User and associated accounts deleted successfully'}), 200)
+    else:
+        return make_response(jsonify({'error': 'Failed to delete user'}), 400)
 
 
 @app_views.route('/users', methods=['POST'], strict_slashes=False)
@@ -94,6 +104,24 @@ def post_user():
     instance = User(**data)
     instance.save()
     return make_response(jsonify(instance.to_dict()), 201)
+
+
+@app_views.route('/verify-email', methods=['GET'], strict_slashes=False)
+def verify_user_email():
+    """
+    Verifies a user's email address.
+    """
+    token = request.args.get('token')
+    if not token:
+        abort(400, description="Missing verification token")
+
+    user = verify_email(token)
+
+    if not user:
+        abort(400, description="Invalid or expired verification token")
+
+    # Redirect to a frontend page indicating successful verification
+    return redirect("http://localhost:5173/email-verified")
 
 
 @app_views.route('/users/<user_id>', methods=['PUT'], strict_slashes=False)
@@ -118,6 +146,36 @@ def put_user(user_id):
             setattr(user, key, value)
     storage.save()
     return make_response(jsonify(user.to_dict()), 200)
+
+
+@app_views.route('/users/<user_id>/change-password', methods=['PUT'], strict_slashes=False)
+def change_password(user_id):
+    """
+    Changes a user's password
+    """
+    user = storage.get(User, user_id)
+
+    if not user:
+        abort(404)
+
+    if not request.get_json():
+        abort(400, description="Not a JSON")
+
+    data = request.get_json()
+    current_password = data.get('current_password')
+    new_password = data.get('new_password')
+
+    if not current_password or not new_password:
+        abort(400, description="Missing current_password or new_password")
+
+    if not user.check_password(current_password):
+        abort(401, description="Incorrect current password")
+
+    user.set_password(new_password)
+    storage.save()
+
+    return make_response(jsonify({"message": "Password changed successfully"}), 200)
+
 
 @app_views.route('/users/register', methods=['POST'], strict_slashes=False)
 @swag_from('documentation/user/Register.yml', methods=['POST'])
@@ -294,31 +352,10 @@ def forgot_password():
     if not email:
         return make_response(jsonify({'error': 'Email is required'}), 400)
     
-    # Find user by email
-    users = storage.all(User).values()
-    user = None
-    for u in users:
-        if u.email == email:
-            user = u
-            break
-    
-    if not user:
+    if send_password_reset_email(email):
+        return make_response(jsonify({'message': 'Password reset link has been sent to your email'}), 200)
+    else:
         return make_response(jsonify({'error': 'User not found'}), 404)
-    
-    # Generate reset token (you can use a more secure method)
-    import secrets
-    reset_token = secrets.token_urlsafe(32)
-    user.reset_token = reset_token
-    storage.save()
-    
-    # TODO: Send email with reset link
-    # For now, we'll just return the token (in production, send via email)
-    reset_link = f"http://your-frontend-url/reset-password?token={reset_token}"
-    
-    return make_response(jsonify({
-        'message': 'Password reset link has been sent to your email',
-        'reset_link': reset_link  # Remove this in production
-    }), 200)
 
 @app_views.route('/users/reset-password', methods=['POST'], strict_slashes=False)
 @swag_from('documentation/user/reset_password.yml', methods=['POST'])
@@ -337,23 +374,12 @@ def reset_password():
     if not token or not new_password:
         return make_response(jsonify({'error': 'Token and new password are required'}), 400)
     
-    # Find user by reset token
-    users = storage.all(User).values()
-    user = None
-    for u in users:
-        if u.reset_token == token:
-            user = u
-            break
-    
-    if not user:
-        return make_response(jsonify({'error': 'Invalid or expired reset token'}), 404)
-    
-    # Update password and clear reset token
-    user.set_password(new_password)
-    user.reset_token = None
-    storage.save()
-    
-    return make_response(jsonify({'message': 'Password has been reset successfully'}), 200)
+    auth = AuthController()
+    try:
+        auth.update_password(token, new_password)
+        return make_response(jsonify({'message': 'Password has been reset successfully'}), 200)
+    except ValueError as e:
+        return make_response(jsonify({'error': str(e)}), 400)
 
 @app_views.route('/users/<user_id>/profile-picture', methods=['POST'], strict_slashes=False)
 @swag_from('documentation/user/upload_profile_picture.yml')
@@ -466,7 +492,6 @@ def download_profile_picture(user_id):
 
         return send_file(
             file_path,
-            as_attachment=True,
             download_name=original_filename,
             mimetype='image/jpeg'  # Adjust based on file type
         )
@@ -509,7 +534,6 @@ def download_fayda_document(user_id):
 
         return send_file(
             file_path,
-            as_attachment=True,
             download_name=original_filename,
             mimetype=mimetype
         )

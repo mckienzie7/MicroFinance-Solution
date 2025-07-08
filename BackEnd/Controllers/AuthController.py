@@ -9,6 +9,7 @@ from sqlalchemy.orm.exc import NoResultFound
 from BackEnd.models import storage
 from BackEnd.models.user import User
 from BackEnd.Controllers.UserControllers import UserController
+from BackEnd.Controllers.EmailVerificationController import send_verification_email
 from datetime import datetime, timedelta
 
 
@@ -51,6 +52,9 @@ class AuthController:
                 new_user.update_fayda_document(fayda_document)
                 self._db.save()
             
+            # Send verification email
+            send_verification_email(new_user.id)
+
             return new_user
         raise ValueError(f"User {email} already exists")
 

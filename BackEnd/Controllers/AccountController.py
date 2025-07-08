@@ -56,6 +56,23 @@ class AccountController:
             Account.user_id == user_id
         ).first()
 
+    def delete_accounts_by_user(self, user_id: str) -> bool:
+        """
+        Deletes all accounts associated with a user.
+        """
+        try:
+            accounts = self.db.session().query(Account).filter(
+                Account.user_id == user_id
+            ).all()
+            for account in accounts:
+                self.db.delete(account)
+            self.db.save()
+            return True
+        except Exception as e:
+            self.db.Rollback()
+            print(f"Error deleting accounts for user {user_id}: {e}")
+            return False
+
     def create_account(self, user_id: str, account_type: str = 'savings') -> Account:
         """Create a new account for a customer"""
         try:

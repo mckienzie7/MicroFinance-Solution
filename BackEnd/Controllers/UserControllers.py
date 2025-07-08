@@ -82,3 +82,27 @@ class UserController:
             synchronize_session=False
         )
         self.db.save()
+
+    def delete_user(self, user_id: str) -> bool:
+        """
+        Deletes a user and their associated accounts from the database.
+        """
+        try:
+            user = self.find_user_by(id=user_id)
+            if not user:
+                raise NoResultFound("User not Found.")
+
+            # Delete associated accounts
+            self.account_controller.delete_accounts_by_user(user_id)
+
+            # Delete the user
+            self.db.delete(user)
+            self.db.save()
+            return True
+        except NoResultFound as e:
+            print(f"Error deleting user: {e}")
+            return False
+        except Exception as e:
+            self.db.Rollback()
+            print(f"An unexpected error occurred: {e}")
+            return False
