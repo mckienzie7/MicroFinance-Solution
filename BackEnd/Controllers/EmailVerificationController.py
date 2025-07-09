@@ -25,8 +25,8 @@ def send_verification_email(user_id):
     sender_email = os.getenv('EMAIL_USER')
     sender_password = os.getenv('EMAIL_PASSWORD')
     receiver_email = user.email
-
-    verification_link = f"https://addismicrofinance.tech/verify-email?token={token}"
+    url = os.getenv('VITE_API_URL')
+    verification_link = f"{url}/api/v1/users/verify-email?token={token}"
 
     message = MIMEText(f"Click the link to verify your email: {verification_link}")
     message['Subject'] = "Email Verification"
@@ -46,7 +46,7 @@ def verify_email(token):
     """
     Verifies the user's email address.
     """
-    user = storage.get(User, "verification_token", token)
+    user = storage.session().query(User).filter_by(verification_token=token).first()
     if not user:
         return None
 

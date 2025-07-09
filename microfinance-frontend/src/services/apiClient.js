@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const apiClient = axios.create({
-  baseURL: 'https://addismicrofinance.tech/api/v1', // Adjust this to your backend URL
+  baseURL: import.meta.env.VITE_API_URL, // Adjust this to your backend URL
   headers: {
     'Content-Type': 'application/json',
   },

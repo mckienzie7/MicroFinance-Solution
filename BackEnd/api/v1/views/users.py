@@ -106,7 +106,7 @@ def post_user():
     return make_response(jsonify(instance.to_dict()), 201)
 
 
-@app_views.route('/verify-email', methods=['GET'], strict_slashes=False)
+@app_views.route('/users/verify-email', methods=['GET'], strict_slashes=False)
 def verify_user_email():
     """
     Verifies a user's email address.
@@ -479,9 +479,9 @@ def download_profile_picture(user_id):
         return make_response(jsonify({'error': 'No profile picture found'}), 404)
 
     try:
-        file_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 
-                                'static', user.profile_picture_path)
-        
+        file_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))),
+                                 'static', user.profile_picture_path)
+
         if not os.path.exists(file_path):
             return make_response(jsonify({'error': 'Profile picture file not found'}), 404)
 
@@ -512,9 +512,9 @@ def download_fayda_document(user_id):
         return make_response(jsonify({'error': 'No Fayda document found'}), 404)
 
     try:
-        file_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 
-                                'static', user.fayda_document_path)
-        
+        file_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))),
+                                 'static', user.fayda_document_path)
+
         if not os.path.exists(file_path):
             return make_response(jsonify({'error': 'Fayda document file not found'}), 404)
 
