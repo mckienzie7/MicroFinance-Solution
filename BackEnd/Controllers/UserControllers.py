@@ -52,19 +52,22 @@ class UserController:
 
     def find_user_by(self, **filters) -> User:
         """Find a user in the database based on filters."""
-        filter_field, filter_value = [], []
+        session = self.db.session()
+        print("Searching user with filters:", filters)
+
+        query = session.query(User)
         for field, value in filters.items():
             if hasattr(User, field):
-                filter_field.append(getattr(User, field))
-                filter_value.append(value)
+                print(f"Filter: {field} = {value}")
+                query = query.filter(getattr(User, field) == value)
             else:
                 raise InvalidRequestError(f"Invalid filter: {field}")
-        new_user = self.db.session().query(User).filter(
-                tuple_(*filter_field).in_([tuple(filter_value)]),
-            ).first()
-        if new_user is None:
-            raise NoResultFound("User not Found.")
-        return new_user
+
+        user = query.first()
+        if user is None:
+            print("User not found.")
+            raise NoResultFound("User not found.")
+        return user
 
     def update_user(self, user_id, **updates) -> None:
         """Update user information in the database."""

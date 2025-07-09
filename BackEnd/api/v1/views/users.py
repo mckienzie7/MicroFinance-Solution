@@ -7,7 +7,7 @@ from werkzeug import Response
 from BackEnd.models.user import User
 from BackEnd.models import storage
 from BackEnd.api.v1.views import app_views
-from flask import abort, jsonify, make_response, request, redirect, send_file
+from flask import abort, jsonify, make_response, request, redirect, send_file, render_template
 from flasgger.utils import swag_from
 from BackEnd.Controllers.AuthController import AuthController
 from BackEnd.Controllers.EmailVerificationController import verify_email
@@ -353,11 +353,12 @@ def forgot_password():
         return make_response(jsonify({'error': 'Email is required'}), 400)
     
     if send_password_reset_email(email):
+
         return make_response(jsonify({'message': 'Password reset link has been sent to your email'}), 200)
     else:
         return make_response(jsonify({'error': 'User not found'}), 404)
 
-@app_views.route('/users/reset-password', methods=['POST'], strict_slashes=False)
+@app_views.route('/reset-password', methods=['POST'], strict_slashes=False)
 @swag_from('documentation/user/reset_password.yml', methods=['POST'])
 def reset_password():
     """
@@ -370,16 +371,25 @@ def reset_password():
     data = request.get_json()
     token = data.get('token')
     new_password = data.get('new_password')
-    
+
     if not token or not new_password:
         return make_response(jsonify({'error': 'Token and new password are required'}), 400)
     
     auth = AuthController()
     try:
-        auth.update_password(token, new_password)
-        return make_response(jsonify({'message': 'Password has been reset successfully'}), 200)
+        if auth.update_password(token, new_password):
+            return make_response(jsonify({'message': 'Password has been reset successfully'}), 200)
+        else:
+            return make_response(jsonify({'error': 'Invalid or expired token'}), 400)
     except ValueError as e:
         return make_response(jsonify({'error': str(e)}), 400)
+
+@app_views.route('/reset-password/<token>', methods=['GET'], strict_slashes=False)
+def reset_password_form(token):
+    # Redirect user to your React frontend
+    url = os.getenv('FRONTEND_URL')
+    frontend_url = f"{url}/reset-password/{token}"
+    return redirect(frontend_url, code=302)
 
 @app_views.route('/users/<user_id>/profile-picture', methods=['POST'], strict_slashes=False)
 @swag_from('documentation/user/upload_profile_picture.yml')

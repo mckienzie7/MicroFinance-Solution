@@ -123,17 +123,17 @@ class AuthController:
         self._userC.update_user(user.id, reset_token=reset_token)
         return reset_token
 
-    def update_password(self, reset_token: str, password: str) -> None:
+    def update_password(self, reset_token: str, password: str) -> bool:
         """Updates a user's password given the user's reset token."""
-        user = None
         try:
             user = self._userC.find_user_by(reset_token=reset_token)
+
         except NoResultFound:
-            user = None
-        if user is None:
             raise ValueError("Invalid reset token")
+
         new_password_hash = _hash_password(password)
         self._userC.update_user(user.id, password=new_password_hash, reset_token=None)
+        return True
 
     def verify_token(self, token: str) -> Union[User, None]:
         """Verify a session token and return the associated user."""
