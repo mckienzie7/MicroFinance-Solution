@@ -1,37 +1,22 @@
-#!/usr/bin/python3
-"""AI Credit Score Model"""
-
+from datetime import datetime
 import numpy as np
 import pandas as pd
-from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
+
 from sklearn.preprocessing import StandardScaler
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import mean_squared_error, r2_score
-from datetime import datetime, timedelta
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import func, and_, or_
 import joblib
-import os
+
 import warnings
 warnings.filterwarnings('ignore')
 
 class AICredoScoreModel:
     def __init__(self):
         """Initialize the AI Credit Score Model with pre-trained models"""
-        self.rf_model = RandomForestRegressor(
-            n_estimators=100,
-            max_depth=10,
-            random_state=42,
-            n_jobs=-1
-        )
-        self.gb_model = GradientBoostingRegressor(
-            n_estimators=100,
-            max_depth=6,
-            learning_rate=0.1,
-            random_state=42
-        )
+        self.rf_model = joblib.load('BackEnd/Credit_score/trained_models/random_forest_model.pkl')
+        self.xgb_model = joblib.load('BackEnd/Credit_score/trained_models/xgboost_model.pkl')
+
         self.scaler = StandardScaler()
-        self.is_trained = False
         self.feature_names = [
             'account_age_days', 'total_balance', 'transaction_count',
             'deposit_count', 'withdrawal_count', 'avg_transaction_amount',
@@ -41,167 +26,6 @@ class AICredoScoreModel:
             'balance_volatility', 'loan_to_deposit_ratio', 'account_utilization',
             'payment_consistency', 'overdraft_usage'
         ]
-        
-        # Load pre-trained model if exists
-        self._load_model()
-        
-        # If no pre-trained model exists, create synthetic training data
-        if not self.is_trained:
-            self._create_synthetic_training_data()
-
-    def _load_model(self):
-        """Load pre-trained model from file"""
-        try:
-            model_dir = os.path.join(os.path.dirname(__file__), '..', 'trained_models')
-            if os.path.exists(os.path.join(model_dir, 'credit_score_rf.joblib')):
-                self.rf_model = joblib.load(os.path.join(model_dir, 'credit_score_rf.joblib'))
-                self.gb_model = joblib.load(os.path.join(model_dir, 'credit_score_gb.joblib'))
-                self.scaler = joblib.load(os.path.join(model_dir, 'credit_score_scaler.joblib'))
-                self.is_trained = True
-                print("Pre-trained model loaded successfully")
-        except Exception as e:
-            print(f"Error loading pre-trained model: {e}")
-            self.is_trained = False
-
-    def _save_model(self):
-        """Save trained model to file"""
-        try:
-            model_dir = os.path.join(os.path.dirname(__file__), '..', 'trained_models')
-            os.makedirs(model_dir, exist_ok=True)
-            
-            joblib.dump(self.rf_model, os.path.join(model_dir, 'credit_score_rf.joblib'))
-            joblib.dump(self.gb_model, os.path.join(model_dir, 'credit_score_gb.joblib'))
-            joblib.dump(self.scaler, os.path.join(model_dir, 'credit_score_scaler.joblib'))
-            print("Model saved successfully")
-        except Exception as e:
-            print(f"Error saving model: {e}")
-
-    def _create_synthetic_training_data(self):
-        """Create synthetic training data for initial model training"""
-        print("Creating synthetic training data...")
-        
-        np.random.seed(42)
-        n_samples = 1000
-        
-        # Generate synthetic features
-        data = {
-            'account_age_days': np.random.normal(365, 200, n_samples),
-            'total_balance': np.random.lognormal(7, 1.5, n_samples),
-            'transaction_count': np.random.poisson(50, n_samples),
-            'deposit_count': np.random.poisson(25, n_samples),
-            'withdrawal_count': np.random.poisson(25, n_samples),
-            'avg_transaction_amount': np.random.lognormal(5, 1, n_samples),
-            'total_deposits': np.random.lognormal(8, 1.5, n_samples),
-            'total_withdrawals': np.random.lognormal(8, 1.5, n_samples),
-            'loan_count': np.random.poisson(2, n_samples),
-            'total_loan_amount': np.random.lognormal(8, 2, n_samples),
-            'avg_loan_amount': np.random.lognormal(7, 1.5, n_samples),
-            'repaid_loans': np.random.binomial(5, 0.8, n_samples),
-            'outstanding_loans': np.random.poisson(1, n_samples),
-            'repayment_ratio': np.random.beta(8, 2, n_samples),
-            'days_since_last_transaction': np.random.exponential(7, n_samples),
-            'balance_volatility': np.random.gamma(2, 0.5, n_samples),
-            'loan_to_deposit_ratio': np.random.beta(2, 5, n_samples),
-            'account_utilization': np.random.beta(3, 7, n_samples),
-            'payment_consistency': np.random.beta(8, 2, n_samples),
-            'overdraft_usage': np.random.beta(1, 9, n_samples)
-        }
-        
-        # Ensure positive values and reasonable ranges
-        for feature in data:
-            data[feature] = np.abs(data[feature])
-            if feature in ['repayment_ratio', 'loan_to_deposit_ratio', 'account_utilization', 
-                          'payment_consistency', 'overdraft_usage']:
-                data[feature] = np.clip(data[feature], 0, 1)
-        
-        # Create target credit scores based on feature combinations
-        credit_scores = self._calculate_synthetic_credit_scores(data)
-        
-        # Create DataFrame
-        X = pd.DataFrame(data)
-        y = np.array(credit_scores)
-        
-        # Train the model
-        self._train_models(X, y)
-
-    def _calculate_synthetic_credit_scores(self, data):
-        """Calculate synthetic credit scores based on feature importance"""
-        scores = []
-        
-        for i in range(len(data['account_age_days'])):
-            score = 300  # Base score
-            
-            # Account age factor (10% weight)
-            score += min(data['account_age_days'][i] / 10, 50)
-            
-            # Balance factor (15% weight)
-            score += min(np.log1p(data['total_balance'][i]) * 8, 75)
-            
-            # Transaction activity (10% weight)
-            score += min(data['transaction_count'][i] * 0.5, 50)
-            
-            # Repayment history (25% weight - most important)
-            score += data['repayment_ratio'][i] * 125
-            
-            # Loan management (15% weight)
-            if data['loan_count'][i] > 0:
-                loan_score = (data['repaid_loans'][i] / max(data['loan_count'][i], 1)) * 75
-                score += loan_score
-            else:
-                score += 30  # Having no loans is neutral
-            
-            # Payment consistency (15% weight)
-            score += data['payment_consistency'][i] * 75
-            
-            # Account utilization (5% weight)
-            utilization_score = (1 - min(data['account_utilization'][i], 0.8)) * 25
-            score += utilization_score
-            
-            # Overdraft penalty (5% weight)
-            score -= data['overdraft_usage'][i] * 25
-            
-            # Recent activity bonus
-            if data['days_since_last_transaction'][i] <= 7:
-                score += 10
-            elif data['days_since_last_transaction'][i] <= 30:
-                score += 5
-            
-            # Ensure score is within valid range
-            score = max(300, min(850, score))
-            scores.append(score)
-        
-        return scores
-
-    def _train_models(self, X, y):
-        """Train the ensemble models"""
-        print("Training credit score models...")
-        
-        # Scale features
-        X_scaled = self.scaler.fit_transform(X)
-        
-        # Split data
-        X_train, X_test, y_train, y_test = train_test_split(
-            X_scaled, y, test_size=0.2, random_state=42
-        )
-        
-        # Train Random Forest
-        self.rf_model.fit(X_train, y_train)
-        
-        # Train Gradient Boosting
-        self.gb_model.fit(X_train, y_train)
-        
-        # Evaluate models
-        rf_pred = self.rf_model.predict(X_test)
-        gb_pred = self.gb_model.predict(X_test)
-        
-        rf_r2 = r2_score(y_test, rf_pred)
-        gb_r2 = r2_score(y_test, gb_pred)
-        
-        print(f"Random Forest R²: {rf_r2:.3f}")
-        print(f"Gradient Boosting R²: {gb_r2:.3f}")
-        
-        self.is_trained = True
-        self._save_model()
 
     def extract_user_features(self, user_id, session):
         """Extract comprehensive features for a user from the database"""
@@ -394,10 +218,7 @@ class AICredoScoreModel:
 
     def predict_credit_score(self, user_id, session):
         """Predict credit score for a user"""
-        if not self.is_trained:
-            print("Model not trained. Using default scoring.")
-            return self._calculate_default_score(user_id, session)
-        
+
         features = self.extract_user_features(user_id, session)
         if not features:
             return 350  # Default score for new users
@@ -410,60 +231,20 @@ class AICredoScoreModel:
         
         # Ensemble prediction
         rf_pred = self.rf_model.predict(X_scaled)[0]
-        gb_pred = self.gb_model.predict(X_scaled)[0]
+        xgb_pred = self.xgb_model.predict(X_scaled)[0]
         
-        # Weighted ensemble (Random Forest 60%, Gradient Boosting 40%)
-        final_score = 0.6 * rf_pred + 0.4 * gb_pred
+        # Since the 2 models capture diffrent risks
+        if abs(rf_pred - xgb_pred) > 100:
+            # Take safer route when models disagree significantly
+            final_score = min(rf_pred, xgb_pred)
+        else:
+            # weighted sum when models agree
+            final_score = 0.7 * rf_pred + 0.3 * xgb_pred 
         
         # Ensure score is within valid range
         final_score = max(300, min(850, final_score))
         
         return round(final_score)
-
-    def _calculate_default_score(self, user_id, session):
-        """Calculate credit score using rule-based approach when ML model is not available"""
-        features = self.extract_user_features(user_id, session)
-        if not features:
-            return 350
-        
-        score = 300  # Base score
-        
-        # Account age factor
-        score += min(features['account_age_days'] / 10, 50)
-        
-        # Balance factor
-        score += min(np.log1p(features['total_balance']) * 8, 75)
-        
-        # Transaction activity
-        score += min(features['transaction_count'] * 0.5, 50)
-        
-        # Repayment history
-        score += features['repayment_ratio'] * 125
-        
-        # Loan management
-        if features['loan_count'] > 0:
-            loan_score = (features['repaid_loans'] / max(features['loan_count'], 1)) * 75
-            score += loan_score
-        else:
-            score += 30
-        
-        # Payment consistency
-        score += features['payment_consistency'] * 75
-        
-        # Account utilization
-        utilization_score = (1 - min(features['account_utilization'], 0.8)) * 25
-        score += utilization_score
-        
-        # Overdraft penalty
-        score -= features['overdraft_usage'] * 25
-        
-        # Recent activity bonus
-        if features['days_since_last_transaction'] <= 7:
-            score += 10
-        elif features['days_since_last_transaction'] <= 30:
-            score += 5
-        
-        return max(300, min(850, round(score)))
 
     def get_score_factors(self, user_id, session):
         """Get detailed factors affecting the credit score"""
