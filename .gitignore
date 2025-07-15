@@ -8,3 +8,4 @@ mysql_data/
 # Ignore system and editor-specific files
 .idea/
 .DS_Store
+*.csv
