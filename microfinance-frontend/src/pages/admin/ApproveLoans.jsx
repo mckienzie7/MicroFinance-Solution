@@ -100,6 +100,7 @@ const ApproveLoans = () => {
             customerPhone: user?.phone_number || 'Unknown',
             amount: loan.amount,
             purpose: loan.purpose,
+            creditScore: loan.credit_score || 70, // Default if not provided
             status: loan.loan_status?.toLowerCase() || 'pending',
             applicationDate: loan.created_at || loan.application_date,
             documents: loan.documents || ['application.pdf'],

@@ -182,6 +182,11 @@ const MyLoans = () => {
       isValid = false;
     }
 
+    if (!loanForm.interest_rate || parseFloat(loanForm.interest_rate) <= 0) {
+      errors.interest_rate = 'Please select a valid interest rate.';
+      isValid = false;
+    }
+
     if (!loanForm.purpose || loanForm.purpose.trim().length < 10) {
       errors.purpose = 'Please provide a detailed purpose for the loan (minimum 10 characters).';
       isValid = false;
@@ -367,7 +372,7 @@ const MyLoans = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700">Loan Term</label>
+              <label className="block text-sm font-medium text-gray-700">Loan Term (months)</label>
               <select
                 name="term_months"
                 value={loanForm.term_months}
@@ -386,18 +391,18 @@ const MyLoans = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700">Interest Rate</label>
-              <div className="mt-1 flex rounded-md shadow-sm">
-                <input
-                  type="text"
-                  readOnly
-                  value={`${loanForm.interest_rate}%`}
-                  className="bg-gray-100 block w-full pl-3 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                />
-              </div>
-              <p className="mt-1 text-xs text-gray-500">
-                Interest rate is determined by the loan term
-              </p>
+              <label className="block text-sm font-medium text-gray-700">Interest Rate (%)</label>
+              <input
+                type="number"
+                name="interest_rate"
+                value={loanForm.interest_rate}
+                onChange={handleInputChange}
+                step="0.1"
+                className="mt-1 block w-full pl-3 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+              />
+              {formErrors.interest_rate && (
+                <p className="mt-1 text-sm text-red-600">{formErrors.interest_rate}</p>
+              )}
             </div>
           </div>
 

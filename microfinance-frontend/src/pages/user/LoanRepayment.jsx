@@ -166,6 +166,8 @@ const LoanRepayment = () => {
       if (parseFloat(paymentForm.amount) > totalDue) {
         errors.amount = `Payment amount cannot exceed the total amount due of ${formatCurrency(totalDue)} (including interest)`;
       }
+    } else if (selectedLoan && parseFloat(paymentForm.amount) > getRemainingBalance(selectedLoan)) {
+      errors.amount = `Payment amount cannot exceed the remaining balance of ${formatCurrency(getRemainingBalance(selectedLoan))}`;
     }
     
     setFormErrors(errors);
