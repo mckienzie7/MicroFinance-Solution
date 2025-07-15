@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Outlet, NavLink, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import UserProfileDisplay from '../components/common/UserProfileDisplay';
+import AIFinancialChatbot from '../components/AIFinancialChatbot';
 
 import { 
   HomeIcon, 
@@ -171,6 +172,9 @@ const UserLayout = () => {
           </div>
         </main>
       </div>
+      
+      {/* AI Financial Chatbot */}
+      <AIFinancialChatbot />
     </div>
   );
 };

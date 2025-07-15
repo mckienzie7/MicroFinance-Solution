@@ -12,3 +12,4 @@ node_modules
 microfinance-frontend/.env
 microfinance-frontend/node_modules
 microfinance-frontend/dist
+*.csv

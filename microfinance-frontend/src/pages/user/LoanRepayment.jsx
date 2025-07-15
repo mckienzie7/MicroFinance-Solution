@@ -118,19 +118,27 @@ const LoanRepayment = () => {
     }).format(amount);
   };
 
-  // Calculate remaining balance for a loan
+  // Calculate remaining balance for a loan (principal only)
   const getRemainingBalance = (loan) => {
     const balance = loan.remaining_balance || loan.amount || 0;
     return parseFloat(balance);
   };
 
-  // Get suggested payment amounts
+  // Calculate total amount due (principal + interest)
+  const getTotalAmountDue = (loan) => {
+    const principal = getRemainingBalance(loan);
+    const interestRate = parseFloat(loan.interest_rate || 0) / 100; // Convert percentage to decimal
+    const interest = principal * interestRate;
+    return principal + interest;
+  };
+
+  // Get suggested payment amounts (including interest)
   const getSuggestedAmounts = (loan) => {
-    const balance = getRemainingBalance(loan);
+    const totalDue = getTotalAmountDue(loan);
     return [
-      balance * 0.25, // 25% of remaining balance
-      balance * 0.5,  // 50% of remaining balance
-      balance         // Full balance
+      totalDue * 0.25, // 25% of total due
+      totalDue * 0.5,  // 50% of total due
+      totalDue         // Full amount due (principal + interest)
     ];
   };
 
@@ -154,6 +162,11 @@ const LoanRepayment = () => {
     
     if (!paymentForm.amount || isNaN(paymentForm.amount) || parseFloat(paymentForm.amount) <= 0) {
       errors.amount = 'Please enter a valid payment amount';
+    } else if (selectedLoan) {
+      const totalDue = getTotalAmountDue(selectedLoan);
+      if (parseFloat(paymentForm.amount) > totalDue) {
+        errors.amount = `Payment amount cannot exceed the total amount due of ${formatCurrency(totalDue)} (including interest)`;
+      }
     } else if (selectedLoan && parseFloat(paymentForm.amount) > getRemainingBalance(selectedLoan)) {
       errors.amount = `Payment amount cannot exceed the remaining balance of ${formatCurrency(getRemainingBalance(selectedLoan))}`;
     }
@@ -254,13 +267,12 @@ const LoanRepayment = () => {
                 name="loan_id"
                 value={paymentForm.loan_id}
                 onChange={handleInputChange}
-                className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm
-                  ${formErrors.loan_id ? 'border-red-300' : ''}`}
+                className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm ${formErrors.loan_id ? 'border-red-300' : ''}`}
               >
                 <option value="">Select a loan</option>
                 {loans.map(loan => (
                   <option key={loan.id} value={loan.id}>
-                    Loan #{loan.id} - Balance: {formatCurrency(getRemainingBalance(loan))}
+                    Loan #{loan.id} - Total Due: {formatCurrency(getTotalAmountDue(loan))}
                   </option>
                 ))}
               </select>
@@ -281,9 +293,33 @@ const LoanRepayment = () => {
                     </p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-500">Remaining Balance</p>
+                    <p className="text-sm text-gray-500">Remaining Principal</p>
                     <p className="text-base font-medium text-gray-900">
                       {formatCurrency(getRemainingBalance(selectedLoan))}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500">Interest ({selectedLoan.interest_rate}%)</p>
+                    <p className="text-base font-medium text-gray-900">
+                      {formatCurrency(getTotalAmountDue(selectedLoan) - getRemainingBalance(selectedLoan))}
+                    </p>
+                  </div>
+                  <div className="col-span-2 pt-2 border-t border-gray-200">
+                    <p className="text-sm font-medium text-gray-700">Total Amount Due</p>
+                    <p className="text-lg font-bold text-gray-900">
+                      {formatCurrency(getTotalAmountDue(selectedLoan))}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500">Interest Rate</p>
+                    <p className="text-base font-medium text-gray-900">
+                      {selectedLoan.interest_rate ? `${selectedLoan.interest_rate}%` : 'N/A'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500">Repayment Period</p>
+                    <p className="text-base font-medium text-gray-900">
+                      {selectedLoan.term_months ? `${selectedLoan.term_months} months` : 'N/A'}
                     </p>
                   </div>
                 </div>

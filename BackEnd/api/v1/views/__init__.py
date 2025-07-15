@@ -11,3 +11,5 @@ from BackEnd.api.v1.views.transactions import *
 from BackEnd.api.v1.views.loans import *
 from BackEnd.api.v1.views.repayments import *
 from BackEnd.api.v1.views.stripe import *
+from BackEnd.api.v1.views.credit_score import * 
+

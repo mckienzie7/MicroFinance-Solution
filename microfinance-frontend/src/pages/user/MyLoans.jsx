@@ -138,10 +138,28 @@ const MyLoans = () => {
     }
   };
   
+  // Calculate interest rate based on loan term
+  const getInterestRate = (termMonths) => {
+    const term = parseInt(termMonths);
+    if (term <= 12) return 5.0;    // 5% for 1 year or less
+    if (term <= 24) return 6.0;    // 6% for 2 years
+    if (term <= 36) return 7.0;    // 7% for 3 years
+    if (term <= 48) return 8.0;    // 8% for 4 years
+    return 9.0;                    // 9% for 5 years or more
+  };
+
   // Handle form input changes
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setLoanForm(prev => ({ ...prev, [name]: value }));
+    const updatedForm = { ...loanForm, [name]: value };
+    
+    // If term_months changes, update the interest rate
+    if (name === 'term_months') {
+      const interestRate = getInterestRate(value);
+      updatedForm.interest_rate = interestRate.toString();
+    }
+    
+    setLoanForm(updatedForm);
     
     // Clear error for this field when user starts typing
     if (formErrors[name]) {
@@ -184,17 +202,23 @@ const MyLoans = () => {
   };
 
   // Calculate monthly payment
-  const calculateMonthlyPayment = () => {
-    if (!loanForm.amount || !loanForm.interest_rate || !loanForm.term_months) {
-      return 0;
+  const calculateMonthlyPayment = (loan) => {
+    if (!loan) {
+      if (!loanForm.amount || !loanForm.interest_rate || !loanForm.term_months) {
+        return 0;
+      }
+      const principal = parseFloat(loanForm.amount);
+      const rate = parseFloat(loanForm.interest_rate) / 100 / 12;
+      const months = parseInt(loanForm.term_months);
+      return (principal * rate * Math.pow(1 + rate, months)) / 
+             (Math.pow(1 + rate, months) - 1);
+    } else {
+      const principal = parseFloat(loan.amount);
+      const rate = parseFloat(loan.interest_rate) / 100 / 12;
+      const months = parseInt(loan.term_months);
+      return (principal * rate * Math.pow(1 + rate, months)) / 
+             (Math.pow(1 + rate, months) - 1);
     }
-
-    const principal = parseFloat(loanForm.amount);
-    const rate = parseFloat(loanForm.interest_rate) / 100 / 12;
-    const months = parseInt(loanForm.term_months);
-
-    return (principal * rate * Math.pow(1 + rate, months)) / 
-           (Math.pow(1 + rate, months) - 1);
   };
 
   // Submit loan application
@@ -355,11 +379,11 @@ const MyLoans = () => {
                 onChange={handleInputChange}
                 className="mt-1 block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 rounded-md"
               >
-                <option value="12">12 months</option>
-                <option value="24">24 months</option>
-                <option value="36">36 months</option>
-                <option value="48">48 months</option>
-                <option value="60">60 months</option>
+                <option value="12">12 months - 5% interest</option>
+                <option value="24">24 months - 6% interest</option>
+                <option value="36">36 months - 7% interest</option>
+                <option value="48">48 months - 8% interest</option>
+                <option value="60">60 months - 9% interest</option>
               </select>
               {formErrors.term_months && (
                 <p className="mt-1 text-sm text-red-600">{formErrors.term_months}</p>
@@ -397,11 +421,39 @@ const MyLoans = () => {
             )}
           </div>
 
-          <div className="bg-gray-50 p-4 rounded-md">
-            <h3 className="text-sm font-medium text-gray-700 mb-2">Monthly Payment Estimate</h3>
-            <p className="text-2xl font-bold text-indigo-600">
-              ${calculateMonthlyPayment().toFixed(2)}
-            </p>
+          <div className="bg-gray-50 p-4 rounded-md space-y-2">
+            <h3 className="text-sm font-medium text-gray-700">Payment Summary</h3>
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <div className="text-gray-600">Loan Amount:</div>
+              <div className="text-right">{formatCurrency(parseFloat(loanForm.amount) || 0)}</div>
+              
+              <div className="text-gray-600">Interest Rate:</div>
+              <div className="text-right">{loanForm.interest_rate}%</div>
+              
+              <div className="text-gray-600">Loan Term:</div>
+              <div className="text-right">{loanForm.term_months} months</div>
+              
+              <div className="font-medium text-indigo-600">Monthly Payment:</div>
+              <div className="font-bold text-indigo-600 text-right">
+                {formatCurrency(calculateMonthlyPayment() || 0)}
+              </div>
+              
+              <div className="font-medium text-gray-800 pt-2 border-t border-gray-200">Total Repayment:</div>
+              <div className="font-medium text-right pt-2 border-t border-gray-200">
+                {formatCurrency((calculateMonthlyPayment() * (parseInt(loanForm.term_months) || 1)) || 0)}
+              </div>
+              
+              <div className="text-gray-600">Total Interest:</div>
+              <div className="text-right">
+                {(() => {
+                  const monthly = calculateMonthlyPayment() || 0;
+                  const months = parseInt(loanForm.term_months) || 1;
+                  const totalRepayment = monthly * months;
+                  const totalInterest = totalRepayment - (parseFloat(loanForm.amount) || 0);
+                  return formatCurrency(totalInterest > 0 ? totalInterest : 0);
+                })()}
+              </div>
+            </div>
           </div>
 
           <div className="flex justify-end">
@@ -470,6 +522,8 @@ const MyLoans = () => {
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Interest Rate</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Term</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Purpose</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
@@ -481,6 +535,12 @@ const MyLoans = () => {
                   <tr key={loan.id}>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">${loan.amount}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">{loan.interest_rate}%</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">{loan.term_months} months</div>
                     </td>
                     <td className="px-6 py-4">
                       <div className="text-sm text-gray-900">{loan.purpose}</div>
@@ -531,9 +591,23 @@ const MyLoans = () => {
             </div>
             
             <div className="space-y-4">
-              <div>
-                <h4 className="text-sm font-medium text-gray-500">Amount</h4>
-                <p className="mt-1 text-lg font-semibold">${selectedLoan.amount}</p>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <h4 className="text-sm font-medium text-gray-500">Amount</h4>
+                  <p className="mt-1 text-lg font-semibold">${selectedLoan.amount}</p>
+                </div>
+                <div>
+                  <h4 className="text-sm font-medium text-gray-500">Interest Rate</h4>
+                  <p className="mt-1">{selectedLoan.interest_rate}%</p>
+                </div>
+                <div>
+                  <h4 className="text-sm font-medium text-gray-500">Term</h4>
+                  <p className="mt-1">{selectedLoan.term_months} months</p>
+                </div>
+                <div>
+                  <h4 className="text-sm font-medium text-gray-500">Monthly Payment</h4>
+                  <p className="mt-1">${calculateMonthlyPayment(selectedLoan).toFixed(2)}</p>
+                </div>
               </div>
               
               <div>
