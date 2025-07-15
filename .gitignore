@@ -4,7 +4,11 @@ __pycache__/
 *.pyc
 mysql_data/
 *.sqlite3
-
+node_modules
 # Ignore system and editor-specific files
 .idea/
 .DS_Store
+node_modules
+microfinance-frontend/.env
+microfinance-frontend/node_modules
+microfinance-frontend/dist
