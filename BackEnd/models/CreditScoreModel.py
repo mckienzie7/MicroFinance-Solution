@@ -227,7 +227,7 @@ class AICredoScoreModel:
         X = pd.DataFrame([features])[self.feature_names]
         
         # Scale features
-        X_scaled = self.scaler.transform(X)
+        X_scaled = self.scaler.fit_transform(X)
         
         # Ensemble prediction
         rf_pred = self.rf_model.predict(X_scaled)[0]

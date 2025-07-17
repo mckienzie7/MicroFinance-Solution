@@ -86,7 +86,7 @@ def get_user_credit_score():
         
     except Exception as e:
         print(f"Error getting user credit score: {str(e)}")
-        return jsonify({'error': 'Failed to calculate credit score'}), 500
+        return jsonify({'error': f'Failed to calculate credit score {e}'}), 500
 
 @app_views.route('/credit-score/history', methods=['GET'], strict_slashes=False)
 def get_credit_score_history():

@@ -284,42 +284,17 @@ const LoanRepayment = () => {
             {/* Selected Loan Details */}
             {selectedLoan && (
               <div className="bg-gray-50 rounded-lg p-4">
-                <h3 className="text-sm font-medium text-gray-700 mb-2">Selected Loan Details</h3>
                 <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-gray-500">Original Amount</p>
-                    <p className="text-base font-medium text-gray-900">
-                      {formatCurrency(selectedLoan.amount)}
-                    </p>
-                  </div>
                   <div>
                     <p className="text-sm text-gray-500">Remaining Principal</p>
                     <p className="text-base font-medium text-gray-900">
                       {formatCurrency(getRemainingBalance(selectedLoan))}
                     </p>
                   </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Interest ({selectedLoan.interest_rate}%)</p>
-                    <p className="text-base font-medium text-gray-900">
-                      {formatCurrency(getTotalAmountDue(selectedLoan) - getRemainingBalance(selectedLoan))}
-                    </p>
-                  </div>
                   <div className="col-span-2 pt-2 border-t border-gray-200">
                     <p className="text-sm font-medium text-gray-700">Total Amount Due</p>
                     <p className="text-lg font-bold text-gray-900">
                       {formatCurrency(getTotalAmountDue(selectedLoan))}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Interest Rate</p>
-                    <p className="text-base font-medium text-gray-900">
-                      {selectedLoan.interest_rate ? `${selectedLoan.interest_rate}%` : 'N/A'}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Repayment Period</p>
-                    <p className="text-base font-medium text-gray-900">
-                      {selectedLoan.term_months ? `${selectedLoan.term_months} months` : 'N/A'}
                     </p>
                   </div>
                 </div>
@@ -348,25 +323,6 @@ const LoanRepayment = () => {
               </div>
               {formErrors.amount && (
                 <p className="mt-1 text-sm text-red-600">{formErrors.amount}</p>
-              )}
-
-              {/* Suggested Amounts */}
-              {selectedLoan && (
-                <div className="mt-3">
-                  <p className="text-sm text-gray-500 mb-2">Suggested amounts:</p>
-                  <div className="flex flex-wrap gap-2">
-                    {getSuggestedAmounts(selectedLoan).map((amount, index) => (
-                      <button
-                        key={index}
-                        type="button"
-                        onClick={() => handleSuggestedAmountClick(amount)}
-                        className="inline-flex items-center px-3 py-1 border border-gray-300 rounded-full text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                      >
-                        {formatCurrency(amount)}
-                      </button>
-                    ))}
-                  </div>
-                </div>
               )}
             </div>
 

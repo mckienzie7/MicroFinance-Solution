@@ -43,7 +43,7 @@ const StripeForm = ({ amount, description, onPaymentSuccess, onPaymentError, use
     }
 
     try {
-      const response = await fetch('/api/v1/stripe/charge', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/v1/stripe/charge`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -90,4 +90,3 @@ const StripeForm = ({ amount, description, onPaymentSuccess, onPaymentError, use
 };
 
 export default StripeForm;
-

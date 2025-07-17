@@ -20,7 +20,7 @@ const SavingsAccount = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState('');
-  
+
   const handleTransactionSuccess = () => {
     setSuccessMessage('Transaction successful! Your balance will be updated shortly.');
     fetchAccountData(); // Re-fetch account data to update balance and transactions
@@ -251,7 +251,7 @@ const SavingsAccount = () => {
           )}
         </div>
       </div>
-      
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Deposit Form */}
         <div className="lg:col-span-1 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
@@ -269,7 +269,7 @@ const SavingsAccount = () => {
             <h2 className="text-lg font-semibold text-gray-900">Make a Withdrawal</h2>
           </div>
           <div className="p-6">
-            {isAuthenticated && user && user.id ? <Withdraw user={user} onTransactionSuccess={handleTransactionSuccess} /> : <p>Loading payment form...</p>}
+            {isAuthenticated && user && user.id ? <Withdraw user={user} onTransactionSuccess={handleTransactionSuccess} accountBalance={accountData ? parseFloat(accountData.balance || 0) : 0} /> : <p>Loading payment form...</p>}
           </div>
         </div>
 
@@ -337,7 +337,7 @@ const SavingsAccount = () => {
 
       {/* Add Savings Report Section */}
       {accountData && transactions.length > 0 && (
-        <SavingsReport 
+        <SavingsReport
           accountData={accountData}
           transactions={transactions}
         />

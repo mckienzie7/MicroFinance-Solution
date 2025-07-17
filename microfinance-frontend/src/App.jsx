@@ -39,8 +39,6 @@ import PrivacyPolicy from './pages/PrivacyPolicy';
 import TermsOfService from './pages/TermsOfService';
 import Notifications from './pages/Notifications';
 import EmailVerified from './pages/EmailVerified';
-import Deposit from './pages/user/Deposit';
-import Withdraw from './pages/user/Withdraw';
 
 function App() {
   return (
@@ -72,7 +70,7 @@ function App() {
                 <Route path="dashboard" element={<AdminDashboard />} />
                 <Route path="users" element={<UserManagement />} />
                 <Route path="savings" element={<SavingsControl />} />
-            
+
                 <Route path="approve-loans" element={<ApproveLoans />} />
                 <Route path="company-balance" element={<CompanyBalance />} />
                 <Route path="reports" element={<Reports />} />
@@ -92,8 +90,6 @@ function App() {
                 <Route path="credit-score" element={<CreditScore />} />
                 <Route path="profile" element={<Profile />} />
                 <Route path="notifications" element={<Notifications />} />
-                <Route path="deposit" element={<Deposit />} />
-                <Route path="withdraw" element={<Withdraw />} />
                 <Route index element={<Navigate to="dashboard" replace />} />
               </Route>
             </Route>
