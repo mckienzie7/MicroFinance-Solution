@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
 
-const StripeForm = ({ amount, description, onPaymentSuccess, onPaymentError, user }) => {
+const StripeForm = ({ amount, description, onPaymentSuccess, onPaymentError, user, transactionType = 'deposit' }) => {
   const stripe = useStripe();
   const elements = useElements();
   const [error, setError] = useState(null);
@@ -43,7 +43,8 @@ const StripeForm = ({ amount, description, onPaymentSuccess, onPaymentError, use
     }
 
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/v1/stripe/charge`, {
+      const endpoint = transactionType === 'withdrawal' ? 'withdraw' : 'deposit';
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/v1/stripe/${endpoint}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

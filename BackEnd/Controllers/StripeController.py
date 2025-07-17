@@ -67,13 +67,11 @@ class StripeController:
             storage.new(new_payment)
             storage.save()
 
-            account = self.account_controller.get_accounts_by_user_id(data['user_id'])
+            account = self.account_controller.get_accounts_by_id(data['user_id'])
             if account:
-                self.account_controller.update_account_balance(account.account_number, data['amount'])
-                self.transaction_controller.create_transaction(
+                self.transaction_controller.deposit(
                     account_id=account.id,
                     amount=data['amount'],
-                    transaction_type='deposit',
                     description=description
                 )
             return jsonify({'status': 'success', 'payment_intent_id': intent.id})
@@ -92,17 +90,19 @@ class StripeController:
         if not all(field in data for field in required_fields):
             return jsonify({"error": "Missing data"}), 400
 
+        account = self.account_controller.get_accounts_by_id(data['user_id'])
+        if not account:
+            return jsonify({"error": "Account not found"}), 404
+
+        if account.balance < data['amount']:
+            return jsonify({"error": "Insufficient funds"}), 400
+
         amount_cents = int(data['amount'] * 100)
         description = f"Withdrawal for user {data['user_id']}"
 
-        # Note: Stripe is used for payments, so "withdrawal" here means the user is paying the service
-        # for a cash withdrawal, which is an unusual use case.
-        # This logic assumes the user's account balance is being reduced.
-
-        account = self.account_controller.get_accounts_by_user_id(data['user_id'])
-        if not account or account.balance < data['amount']:
-            return jsonify({"error": "Insufficient funds"}), 400
-
+        # For withdrawals, we might need a payout to the user's bank account.
+        # This example assumes a charge, which might not be the correct Stripe flow
+        # for paying out to users. This should be reviewed for production.
         intent = self._create_charge(amount_cents, data['payment_method_id'], description)
 
         if isinstance(intent, dict) and 'error' in intent:
@@ -111,18 +111,16 @@ class StripeController:
         if intent.status == 'succeeded':
             new_payment = StripePayment(
                 user_id=data['user_id'],
-                amount=data['amount'],
+                amount=-data['amount'],  # Negative amount for withdrawal
                 description=description,
                 stripe_charge_id=intent.id
             )
             storage.new(new_payment)
             storage.save()
 
-            self.account_controller.update_account_balance(account.account_number, -data['amount'])
-            self.transaction_controller.create_transaction(
+            self.transaction_controller.withdraw(
                 account_id=account.id,
                 amount=data['amount'],
-                transaction_type='withdrawal',
                 description=description
             )
             return jsonify({'status': 'success', 'payment_intent_id': intent.id})

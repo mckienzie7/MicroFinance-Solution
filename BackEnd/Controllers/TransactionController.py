@@ -36,6 +36,69 @@ class TransactionController:
         self.db.save()
         return new_transaction
 
+    def deposit(self, account_id: str, amount: float, description: str = None) -> Transaction:
+        """
+        Deposit money into an account.
+        Args:
+            account_id: The ID of the account to deposit into.
+            amount: The amount to deposit.
+            description: Optional description of the deposit.
+        Returns:
+            The created transaction.
+        """
+        if amount <= 0:
+            raise ValueError("Deposit amount must be positive")
+
+        account = self.db.get(Account, account_id)
+        if not account:
+            raise NoResultFound("Account not found")
+
+        if not self.auth.validate_active_account(account_id):
+            raise ValueError("Account must be active for deposit")
+
+        account.balance += amount
+        transaction = self.create_transaction(
+            account_id,
+            amount,
+            "deposit",
+            description
+        )
+        self.db.save()
+        return transaction
+
+    def withdraw(self, account_id: str, amount: float, description: str = None) -> Transaction:
+        """
+        Withdraw money from an account.
+        Args:
+            account_id: The ID of the account to withdraw from.
+            amount: The amount to withdraw.
+            description: Optional description of the withdrawal.
+        Returns:
+            The created transaction.
+        """
+        if amount <= 0:
+            raise ValueError("Withdrawal amount must be positive")
+
+        account = self.db.get(Account, account_id)
+        if not account:
+            raise NoResultFound("Account not found")
+
+        if not self.auth.validate_active_account(account_id):
+            raise ValueError("Account must be active for withdrawal")
+
+        if account.balance < amount:
+            raise ValueError("Insufficient funds")
+
+        account.balance -= amount
+        transaction = self.create_transaction(
+            account_id,
+            -amount,
+            "withdrawal",
+            description
+        )
+        self.db.save()
+        return transaction
+
     def update_transaction(self, transaction: Transaction, data: dict, ignore: list = None) -> Transaction:
         """
         Update transaction details
@@ -109,7 +172,7 @@ class TransactionController:
         Returns:
             Tuple of (debit_transaction, credit_transaction)
         """
-        if not (self.auth.validate_active_account(from_account_id) and 
+        if not (self.auth.validate_active_account(from_account_id) and
                 self.auth.validate_active_account(to_account_id)):
             raise ValueError("Both accounts must be active for transfer")
 
@@ -122,27 +185,20 @@ class TransactionController:
         if from_account.balance < amount:
             raise ValueError("Insufficient funds")
 
-        # Create debit transaction
-        debit_transaction = self.create_transaction(
+        # Withdraw from source account
+        debit_transaction = self.withdraw(
             from_account_id,
-            -amount,
-            "transfer",
-            f"Transfer to {to_account_id}" + (f": {description}" if description else "")
+            amount,
+            f"Transfer to {to_account.id}" + (f": {description}" if description else "")
         )
 
-        # Create credit transaction
-        credit_transaction = self.create_transaction(
+        # Deposit into destination account
+        credit_transaction = self.deposit(
             to_account_id,
             amount,
-            "transfer",
-            f"Transfer from {from_account_id}" + (f": {description}" if description else "")
+            f"Transfer from {from_account.id}" + (f": {description}" if description else "")
         )
 
-        # Update account balances
-        from_account.balance -= amount
-        to_account.balance += amount
-
-        self.db.save()
         return debit_transaction, credit_transaction
 
     def delete_transaction(self, transaction: Transaction) -> None:
