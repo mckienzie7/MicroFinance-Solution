@@ -1,0 +1,37 @@
+Mark All Notifications as Read
+---
+tags:
+  - Notifications
+summary: Mark all notifications as read
+description: Marks all notifications as read for the authenticated user
+parameters:
+  - name: Authorization
+    in: header
+    type: string
+    required: true
+    description: Bearer token for user authentication
+responses:
+  200:
+    description: All notifications marked as read successfully
+    schema:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "All notifications marked as read"
+  401:
+    description: Unauthorized - No token provided or invalid token
+    schema:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "No authorization token provided"
+  400:
+    description: Failed to mark notifications as read
+    schema:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Failed to mark notifications as read"

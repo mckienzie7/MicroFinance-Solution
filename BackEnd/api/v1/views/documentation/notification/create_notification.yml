@@ -1,0 +1,75 @@
+Create Notification (Admin)
+---
+tags:
+  - Notifications
+summary: Create a new notification (Admin only)
+description: Creates a new notification for a specific user (Admin access required)
+parameters:
+  - name: Authorization
+    in: header
+    type: string
+    required: true
+    description: Bearer token for admin authentication
+  - name: body
+    in: body
+    required: true
+    schema:
+      type: object
+      required:
+        - user_id
+        - message
+      properties:
+        user_id:
+          type: string
+          description: The ID of the user to notify
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        message:
+          type: string
+          description: The notification message
+          example: "Your account has been updated"
+responses:
+  201:
+    description: Notification created successfully
+    schema:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Notification ID
+        user_id:
+          type: string
+          description: User ID who owns the notification
+        message:
+          type: string
+          description: Notification message
+        is_read:
+          type: boolean
+          description: Whether the notification has been read
+        created_at:
+          type: string
+          format: date-time
+          description: When the notification was created
+  400:
+    description: Bad request - Missing required fields or invalid data
+    schema:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "Missing user_id or message"
+  401:
+    description: Unauthorized - No token provided or invalid token
+    schema:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "No authorization token provided"
+  403:
+    description: Forbidden - Admin access required
+    schema:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Unauthorized. Admin access required"

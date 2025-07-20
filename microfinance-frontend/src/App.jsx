@@ -68,6 +68,7 @@ function App() {
             <Route path="/admin" element={<ProtectedRoute allowedRoles={['admin']} />}>
               <Route element={<AdminLayout />}>
                 <Route path="dashboard" element={<AdminDashboard />} />
+                <Route path="notifications" element={<Notifications />} />
                 <Route path="users" element={<UserManagement />} />
                 <Route path="savings" element={<SavingsControl />} />
 
@@ -84,6 +85,8 @@ function App() {
               <Route element={<UserLayout />}>
                 <Route path="dashboard" element={<UserDashboard />} />
                 <Route path="savings" element={<SavingsAccount />} />
+                <Route path="deposit" element={<div className="p-6"><h1 className="text-2xl font-bold mb-4">Deposit</h1><p>Deposit functionality coming soon...</p></div>} />
+                <Route path="withdraw" element={<div className="p-6"><h1 className="text-2xl font-bold mb-4">Withdraw</h1><p>Withdraw functionality coming soon...</p></div>} />
                 {/* ApplyLoan route removed */}
                 <Route path="loans" element={<MyLoans />} />
                 <Route path="pay-loan" element={<LoanRepayment />} />

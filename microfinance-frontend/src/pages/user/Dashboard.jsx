@@ -243,6 +243,27 @@ const Dashboard = () => {
         });
       }
 
+      // Fetch actual credit score
+      let creditScoreData = {
+        score: 0,
+        maxScore: 850,
+        category: 'No Data'
+      };
+
+      try {
+        const creditScoreResponse = await api.get('/api/v1/credit-score', { headers });
+        if (creditScoreResponse.data) {
+          creditScoreData = {
+            score: creditScoreResponse.data.credit_score || 0,
+            maxScore: 850,
+            category: creditScoreResponse.data.score_rating || 'No Data'
+          };
+        }
+      } catch (creditError) {
+        console.error('Error fetching credit score:', creditError);
+        // Keep default values if credit score fetch fails
+      }
+
       // Update dashboard data
       setDashboardData({
         balance: {
@@ -250,11 +271,7 @@ const Dashboard = () => {
           currency: 'ETB'
         },
         loanProgress,
-        creditScore: {
-          score: 750, // Example score
-          maxScore: 1000,
-          category: 'Good'
-        },
+        creditScore: creditScoreData,
         recentActivity: recentTransactions.slice(0, 5).map(tx => ({
           id: tx.id,
           type: tx.transaction_type,

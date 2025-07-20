@@ -7,6 +7,7 @@ from BackEnd.models.Account import Account
 from BackEnd.models.Transaction import Transaction
 from sqlalchemy.orm.exc import NoResultFound
 from BackEnd.Controllers.AccountAuthController import AccountAuthController
+from BackEnd.Controllers.NotificationController import NotificationController
 from typing import List
 from sqlalchemy import func
 import re
@@ -21,6 +22,7 @@ class AccountController:
         """Initialize the AccountController with database storage"""
         self.db = storage
         self.auth = AccountAuthController()
+        self.notification_controller = NotificationController()
         self.__session = None
 
     def _get_last_account_number(self):
@@ -79,11 +81,12 @@ class AccountController:
             # Generate new account number
             account_number = self._generate_account_number()
             
-            # Create new account
+            # Create new account with inactive status by default
             account = Account(
                 user_id=user_id,
                 account_number=account_number,
-                type=account_type
+                type=account_type,
+                status='inactive'  # New accounts start as inactive
             )
             
             # Save to database
@@ -260,4 +263,36 @@ class AccountController:
         except Exception as e:
             self.db.Rollback()
             print(f"Error updating account balance: {e}")
+            return False
+
+    def activate_account(self, user_id: str) -> bool:
+        """Activate user account by setting status to 'active'"""
+        try:
+            account = self.get_accounts_by_id(user_id)
+            if account:
+                account.status = 'active'
+                self.db.save()
+                
+                # Create activation notification
+                self.notification_controller.notify_account_activation(user_id)
+                
+                return True
+            return False
+        except Exception as e:
+            self.db.Rollback()
+            print(f"Error activating account for user {user_id}: {e}")
+            return False
+
+    def deactivate_account_by_user(self, user_id: str) -> bool:
+        """Deactivate user account by setting status to 'inactive'"""
+        try:
+            account = self.get_accounts_by_id(user_id)
+            if account:
+                account.status = 'inactive'
+                self.db.save()
+                return True
+            return False
+        except Exception as e:
+            self.db.Rollback()
+            print(f"Error deactivating account for user {user_id}: {e}")
             return False

@@ -57,9 +57,14 @@ const CreditScore = () => {
     setError(null);
     
     try {
+      const headers = {
+        'Authorization': `Bearer ${localStorage.getItem('session_id')}`,
+        'Content-Type': 'application/json'
+      };
+
       const [scoreResponse, historyResponse] = await Promise.all([
-        api.get('/api/v1/credit-score'),
-        api.get('/api/v1/credit-score/history')
+        api.get('/api/v1/credit-score', { headers }),
+        api.get('/api/v1/credit-score/history', { headers })
       ]);
       
       setScoreData(scoreResponse.data);

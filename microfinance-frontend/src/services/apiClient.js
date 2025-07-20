@@ -9,9 +9,9 @@ const apiClient = axios.create({
 
 // You can add interceptors for handling tokens or errors globally
 apiClient.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token'); // Or however you store the token
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+  const sessionId = localStorage.getItem('session_id'); // Use session_id for consistency
+  if (sessionId) {
+    config.headers.Authorization = `Bearer ${sessionId}`;
   }
   return config;
 });

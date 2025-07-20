@@ -1,0 +1,58 @@
+Deactivate User Account
+---
+tags:
+  - Accounts
+summary: Deactivate a user's account (Admin only)
+description: Sets the account status to 'inactive' for the specified user
+parameters:
+  - name: user_id
+    in: path
+    type: string
+    required: true
+    description: The ID of the user whose account should be deactivated
+  - name: Authorization
+    in: header
+    type: string
+    required: true
+    description: Bearer token for admin authentication
+responses:
+  200:
+    description: Account deactivated successfully
+    schema:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Account deactivated successfully"
+  401:
+    description: Unauthorized - No token provided
+    schema:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "No authorization token provided"
+  403:
+    description: Forbidden - Admin access required
+    schema:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Unauthorized. Admin access required"
+  404:
+    description: Account not found
+    schema:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "Account not found or deactivation failed"
+  400:
+    description: Bad request
+    schema:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "Error message"

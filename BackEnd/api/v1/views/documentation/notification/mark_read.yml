@@ -1,0 +1,58 @@
+Mark Notification as Read
+---
+tags:
+  - Notifications
+summary: Mark a specific notification as read
+description: Marks a notification as read for the authenticated user
+parameters:
+  - name: notification_id
+    in: path
+    type: string
+    required: true
+    description: The ID of the notification to mark as read
+  - name: Authorization
+    in: header
+    type: string
+    required: true
+    description: Bearer token for user authentication
+responses:
+  200:
+    description: Notification marked as read successfully
+    schema:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Notification marked as read"
+  401:
+    description: Unauthorized - No token provided or invalid token
+    schema:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "No authorization token provided"
+  403:
+    description: Forbidden - User doesn't own this notification
+    schema:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Unauthorized to access this notification"
+  404:
+    description: Notification not found
+    schema:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Notification not found"
+  400:
+    description: Failed to mark notification as read
+    schema:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Failed to mark notification as read"

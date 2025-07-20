@@ -200,4 +200,58 @@ def get_account_transactions(account_id):
     transaction = TransactionController()
     controller = AccountController()
     transactions = transaction.get_transactions_by_account(account_id)
-    return jsonify([transaction.to_dict() for transaction in transactions]) 
+    return jsonify([transaction.to_dict() for transaction in transactions])
+
+@app_views.route('/accounts/activate/<user_id>', methods=['POST'], strict_slashes=False)
+@swag_from('documentation/account/activate_account.yml')
+def activate_user_account(user_id):
+    """
+    Activates a user's account (Admin only)
+    """
+    # Check for admin role in session
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return jsonify({"message": "No authorization token provided"}), 401
+    
+    token = auth_header.split(' ')[1]
+    auth_controller = AuthController()
+    user = auth_controller.get_user_from_session_id(token)
+    
+    if not user or not user.admin:
+        return jsonify({"message": "Unauthorized. Admin access required"}), 403
+    
+    controller = AccountController()
+    try:
+        if controller.activate_account(user_id):
+            return make_response(jsonify({"message": "Account activated successfully"}), 200)
+        else:
+            return make_response(jsonify({"error": "Account not found or activation failed"}), 404)
+    except Exception as e:
+        return make_response(jsonify({"error": str(e)}), 400)
+
+@app_views.route('/accounts/deactivate/<user_id>', methods=['POST'], strict_slashes=False)
+@swag_from('documentation/account/deactivate_account.yml')
+def deactivate_user_account(user_id):
+    """
+    Deactivates a user's account (Admin only)
+    """
+    # Check for admin role in session
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return jsonify({"message": "No authorization token provided"}), 401
+    
+    token = auth_header.split(' ')[1]
+    auth_controller = AuthController()
+    user = auth_controller.get_user_from_session_id(token)
+    
+    if not user or not user.admin:
+        return jsonify({"message": "Unauthorized. Admin access required"}), 403
+    
+    controller = AccountController()
+    try:
+        if controller.deactivate_account_by_user(user_id):
+            return make_response(jsonify({"message": "Account deactivated successfully"}), 200)
+        else:
+            return make_response(jsonify({"error": "Account not found or deactivation failed"}), 404)
+    except Exception as e:
+        return make_response(jsonify({"error": str(e)}), 400) 

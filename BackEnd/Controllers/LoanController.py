@@ -9,6 +9,7 @@ from BackEnd.models.Transaction import Transaction
 from BackEnd.models.user import User
 from sqlalchemy.orm.exc import NoResultFound
 from BackEnd.Controllers.LoanAuthController import LoanAuthController
+from BackEnd.Controllers.NotificationController import NotificationController
 from datetime import datetime, timedelta
 from typing import List, Tuple
 
@@ -22,6 +23,7 @@ class LoanController:
         """Initialize the LoanController with database storage and authentication controller"""
         self.db = storage
         self.auth = LoanAuthController()
+        self.notification_controller = NotificationController()
 
     def apply_loan(self, user_id: str, amount: float, interest_rate: float,
                    repayment_period: int, purpose: str, admin_id: str) -> Loan:
@@ -84,6 +86,21 @@ class LoanController:
         )
         self.db.new(new_loan)
         self.db.save()
+        
+        # Create loan application notification for user
+        self.notification_controller.notify_loan_application(
+            user_id=user_id,
+            amount=amount,
+            loan_id=new_loan.id
+        )
+        
+        # Create notification for admin about new loan application
+        admin_message = f"New loan application received from user {customer.fullname or customer.username} for {amount} ETB (Loan ID: {new_loan.id}). Please review and approve/reject."
+        self.notification_controller.create_notification(
+            user_id=admin_id,
+            message=admin_message
+        )
+        
         return new_loan
 
     def approve_loan(self, loan_id: str, admin_id: str) -> Loan:
@@ -132,6 +149,13 @@ class LoanController:
             account.balance += loan.amount
             self.db.save()
 
+            # Create loan approval notification
+            self.notification_controller.notify_loan_approval(
+                user_id=loan.user_id,
+                amount=loan.amount,
+                loan_id=loan_id
+            )
+
             return loan
         except Exception as e:
             # Use the correct method name for rollback
@@ -179,6 +203,14 @@ class LoanController:
             loan.end_date = datetime.now()
 
         self.db.save()
+        
+        # Create loan repayment notification
+        self.notification_controller.notify_loan_repayment(
+            user_id=loan.user_id,
+            amount=amount,
+            loan_id=loan_id
+        )
+        
         return transaction, loan
 
     def get_repayment_schedule(self, loan_id: str) -> List[dict]:
@@ -275,6 +307,15 @@ class LoanController:
         loan.loan_status = "rejected"
         loan.rejection_reason = reason
         self.db.save()
+        
+        # Create loan rejection notification
+        self.notification_controller.notify_loan_rejection(
+            user_id=loan.user_id,
+            amount=loan.amount,
+            reason=reason,
+            loan_id=loan_id
+        )
+        
         return loan
 
     def get_admin_loans(self, admin_id: str) -> List[Loan]:

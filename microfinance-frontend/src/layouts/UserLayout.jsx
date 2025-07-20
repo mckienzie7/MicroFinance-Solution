@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import UserProfileDisplay from '../components/common/UserProfileDisplay';
 import AIFinancialChatbot from '../components/AIFinancialChatbot';
+import { getUnreadCount } from '../services/notificationService';
 
 import { 
   HomeIcon, 
@@ -13,16 +14,38 @@ import {
   ArrowLeftOnRectangleIcon,
   Bars3Icon,
   XMarkIcon,
-  CurrencyDollarIcon
+  CurrencyDollarIcon,
+  BellIcon
 } from '@heroicons/react/24/outline';
 
 const UserLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   
   // Debug logging for user object in UserLayout
   console.log('UserLayout - User object:', user);
+
+  // Fetch unread notifications count
+  useEffect(() => {
+    const fetchUnreadCount = async () => {
+      if (user) {
+        try {
+          const response = await getUnreadCount();
+          setUnreadCount(response.data.unread_count);
+        } catch (error) {
+          console.error('Error fetching unread count:', error);
+        }
+      }
+    };
+
+    fetchUnreadCount();
+    
+    // Poll for updates every 30 seconds
+    const interval = setInterval(fetchUnreadCount, 30000);
+    return () => clearInterval(interval);
+  }, [user]);
 
   const handleLogout = () => {
     logout();
@@ -35,6 +58,7 @@ const UserLayout = () => {
 
   const navigation = [
     { name: 'Dashboard', href: '/user/dashboard', icon: HomeIcon },
+    { name: 'Notifications', href: '/user/notifications', icon: BellIcon, badge: unreadCount },
     { name: 'Savings Account', href: '/user/savings', icon: BanknotesIcon },
     { name: 'Deposit', href: '/user/deposit', icon: CurrencyDollarIcon },
     { name: 'Withdraw', href: '/user/withdraw', icon: CurrencyDollarIcon },
@@ -92,7 +116,12 @@ const UserLayout = () => {
                   }
                 >
                   <item.icon className="mr-3 h-5 w-5" aria-hidden="true" />
-                  {item.name}
+                  <span className="flex-1">{item.name}</span>
+                  {item.badge > 0 && (
+                    <span className="ml-2 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-600 rounded-full">
+                      {item.badge}
+                    </span>
+                  )}
                 </NavLink>
               ))}
             </nav>
@@ -138,7 +167,12 @@ const UserLayout = () => {
                   }
                 >
                   <item.icon className="mr-3 h-5 w-5" aria-hidden="true" />
-                  {item.name}
+                  <span className="flex-1">{item.name}</span>
+                  {item.badge > 0 && (
+                    <span className="ml-2 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-600 rounded-full">
+                      {item.badge}
+                    </span>
+                  )}
                 </NavLink>
               ))}
             </nav>

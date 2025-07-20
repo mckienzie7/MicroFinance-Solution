@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import UserProfileDisplay from '../components/common/UserProfileDisplay';
+import { getUnreadCount } from '../services/notificationService';
 import { 
   HomeIcon, 
   UsersIcon, 
@@ -12,13 +13,35 @@ import {
   ArrowLeftOnRectangleIcon,
   Bars3Icon,
   XMarkIcon,
-  BanknotesIcon
+  BanknotesIcon,
+  BellIcon
 } from '@heroicons/react/24/outline';
 
 const AdminLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+
+  // Fetch unread notifications count
+  useEffect(() => {
+    const fetchUnreadCount = async () => {
+      if (user) {
+        try {
+          const response = await getUnreadCount();
+          setUnreadCount(response.data.unread_count);
+        } catch (error) {
+          console.error('Error fetching unread count:', error);
+        }
+      }
+    };
+
+    fetchUnreadCount();
+    
+    // Poll for updates every 30 seconds
+    const interval = setInterval(fetchUnreadCount, 30000);
+    return () => clearInterval(interval);
+  }, [user]);
 
   const handleLogout = () => {
     logout();
@@ -31,6 +54,7 @@ const AdminLayout = () => {
 
   const navigation = [
     { name: 'Dashboard', href: '/admin/dashboard', icon: HomeIcon },
+    { name: 'Notifications', href: '/admin/notifications', icon: BellIcon, badge: unreadCount },
     { name: 'User Management', href: '/admin/users', icon: UsersIcon },
     { name: 'Savings Control', href: '/admin/savings', icon: BanknotesIcon },
     { name: 'Loan Applications', href: '/admin/approve-loans', icon: CreditCardIcon },
@@ -87,7 +111,12 @@ const AdminLayout = () => {
                   }
                 >
                   <item.icon className="mr-3 h-5 w-5" aria-hidden="true" />
-                  {item.name}
+                  <span className="flex-1">{item.name}</span>
+                  {item.badge > 0 && (
+                    <span className="ml-2 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-600 rounded-full">
+                      {item.badge}
+                    </span>
+                  )}
                 </NavLink>
               ))}
             </nav>
@@ -130,7 +159,12 @@ const AdminLayout = () => {
                   }
                 >
                   <item.icon className="mr-3 h-5 w-5" aria-hidden="true" />
-                  {item.name}
+                  <span className="flex-1">{item.name}</span>
+                  {item.badge > 0 && (
+                    <span className="ml-2 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-600 rounded-full">
+                      {item.badge}
+                    </span>
+                  )}
                 </NavLink>
               ))}
             </nav>

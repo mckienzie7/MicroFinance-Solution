@@ -1,0 +1,67 @@
+Get All Notifications (Admin)
+---
+tags:
+  - Notifications
+summary: Get all notifications (Admin only)
+description: Retrieves all notifications in the system or for a specific user (Admin access required)
+parameters:
+  - name: Authorization
+    in: header
+    type: string
+    required: true
+    description: Bearer token for admin authentication
+  - name: limit
+    in: query
+    type: integer
+    required: false
+    default: 100
+    description: Maximum number of notifications to return
+  - name: user_id
+    in: query
+    type: string
+    required: false
+    description: Filter notifications for a specific user ID
+responses:
+  200:
+    description: List of notifications retrieved successfully
+    schema:
+      type: array
+      items:
+        type: object
+        properties:
+          id:
+            type: string
+            description: Notification ID
+          user_id:
+            type: string
+            description: User ID who owns the notification
+          message:
+            type: string
+            description: Notification message
+          is_read:
+            type: boolean
+            description: Whether the notification has been read
+          created_at:
+            type: string
+            format: date-time
+            description: When the notification was created
+          updated_at:
+            type: string
+            format: date-time
+            description: When the notification was last updated
+  401:
+    description: Unauthorized - No token provided or invalid token
+    schema:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "No authorization token provided"
+  403:
+    description: Forbidden - Admin access required
+    schema:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Unauthorized. Admin access required"

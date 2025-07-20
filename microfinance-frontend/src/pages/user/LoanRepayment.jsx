@@ -177,7 +177,10 @@ const LoanRepayment = () => {
   
   // Submit loan payment
   const handleStripeRepayment = async (paymentMethodId) => {
+    console.log('handleStripeRepayment called with paymentMethodId:', paymentMethodId);
+    
     if (!validateForm()) {
+      console.log('Form validation failed');
       return;
     }
     
@@ -193,8 +196,17 @@ const LoanRepayment = () => {
         user_id: user.id,
       };
       
-      await api.post('/api/v1/stripe/repay_loan', paymentData);
+      console.log('Sending payment data:', paymentData);
+      console.log('API endpoint:', '/api/v1/stripe/repay_loan');
+      
+      const response = await api.post('/api/v1/stripe/repay_loan', paymentData, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('session_id')}`,
+          'Content-Type': 'application/json'
+        }
+      });
 
+      console.log('Payment response:', response.data);
       setSuccessMessage(`Payment of ${formatCurrency(parseFloat(paymentForm.amount))} processed successfully!`);
       
       setPaymentForm(prev => ({
@@ -206,6 +218,12 @@ const LoanRepayment = () => {
       await fetchLoans();
     } catch (err) {
       console.error('Error processing payment:', err);
+      console.error('Error details:', {
+        message: err.message,
+        response: err.response?.data,
+        status: err.response?.status,
+        request: err.request
+      });
       
       if (err.response) {
         if (err.response.status === 500) {
@@ -257,7 +275,7 @@ const LoanRepayment = () => {
             </div>
           )}
           
-          <form onSubmit={(e) => e.preventDefault()} className="space-y-6">
+          <div className="space-y-6">
             {/* Loan Selection */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -335,7 +353,7 @@ const LoanRepayment = () => {
                 />
               )}
             </div>
-          </form>
+          </div>
         </div>
 
         {/* Transaction History Section */}

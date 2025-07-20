@@ -1,0 +1,51 @@
+Get User Notifications
+---
+tags:
+  - Notifications
+summary: Get notifications for the authenticated user
+description: Retrieves a list of notifications for the currently authenticated user
+parameters:
+  - name: Authorization
+    in: header
+    type: string
+    required: true
+    description: Bearer token for user authentication
+  - name: limit
+    in: query
+    type: integer
+    required: false
+    default: 50
+    description: Maximum number of notifications to return
+responses:
+  200:
+    description: List of notifications retrieved successfully
+    schema:
+      type: array
+      items:
+        type: object
+        properties:
+          id:
+            type: string
+            description: Notification ID
+          message:
+            type: string
+            description: Notification message
+          is_read:
+            type: boolean
+            description: Whether the notification has been read
+          created_at:
+            type: string
+            format: date-time
+            description: When the notification was created
+          updated_at:
+            type: string
+            format: date-time
+            description: When the notification was last updated
+  401:
+    description: Unauthorized - No token provided or invalid token
+    schema:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "No authorization token provided"

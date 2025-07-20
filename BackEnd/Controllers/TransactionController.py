@@ -7,6 +7,7 @@ from BackEnd.models.Transaction import Transaction
 from BackEnd.models.Account import Account
 from sqlalchemy.orm.exc import NoResultFound
 from BackEnd.Controllers.TransactionAuthController import TransactionAuthController
+from BackEnd.Controllers.NotificationController import NotificationController
 from datetime import datetime
 from typing import List, Tuple
 
@@ -20,6 +21,7 @@ class TransactionController:
         """Initialize the TransactionController with database storage"""
         self.db = storage
         self.auth = TransactionAuthController()
+        self.notification_controller = NotificationController()
 
     def create_transaction(self, account_id: str, amount: float, transaction_type: str, description: str = None) -> Transaction:
         """Create a new transaction for an account"""
@@ -97,6 +99,15 @@ class TransactionController:
             description
         )
         self.db.save()
+        
+        # Check for low balance and create notification if needed
+        LOW_BALANCE_THRESHOLD = 100.0  # ETB
+        if account.balance < LOW_BALANCE_THRESHOLD:
+            self.notification_controller.notify_low_balance(
+                user_id=account.user_id,
+                current_balance=account.balance
+            )
+        
         return transaction
 
     def update_transaction(self, transaction: Transaction, data: dict, ignore: list = None) -> Transaction:

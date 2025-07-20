@@ -1,0 +1,30 @@
+Get Unread Notifications Count
+---
+tags:
+  - Notifications
+summary: Get the count of unread notifications
+description: Returns the number of unread notifications for the authenticated user
+parameters:
+  - name: Authorization
+    in: header
+    type: string
+    required: true
+    description: Bearer token for user authentication
+responses:
+  200:
+    description: Unread count retrieved successfully
+    schema:
+      type: object
+      properties:
+        unread_count:
+          type: integer
+          description: Number of unread notifications
+          example: 5
+  401:
+    description: Unauthorized - No token provided or invalid token
+    schema:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "No authorization token provided"

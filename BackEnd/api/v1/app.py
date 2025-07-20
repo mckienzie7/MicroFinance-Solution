@@ -14,15 +14,16 @@ app.config['JSONIFY_PRETTYPRINT_REGULAR'] = True
 app.register_blueprint(app_views, url_prefix='/api/v1')
 app.register_blueprint(stripe_views, url_prefix='/api/v1')
 
-# Configure CORS to allow requests from any origin
-# This is safe because we're using a proxy in the frontend
+# Configure CORS to allow requests from frontend
 CORS(app, resources={
     r"/api/*": {
-        "origins": ["http://localhost:*", "http://127.0.0.1:*", "http://10.0.2.2:*"],
+        "origins": ["http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:3000"],
         "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-        "allow_headers": ["Content-Type", "Authorization"]
+        "allow_headers": ["Content-Type", "Authorization", "Access-Control-Allow-Credentials"],
+        "expose_headers": ["Content-Type", "Authorization"],
+        "supports_credentials": True
     }
-}, supports_credentials=True)
+})
 
 
 @app.teardown_appcontext

@@ -7,11 +7,13 @@ import {
   MagnifyingGlassIcon,
   EyeIcon,
   XMarkIcon,
-  DocumentTextIcon
+  DocumentTextIcon,
+  CheckCircleIcon,
+  XCircleIcon
 } from '@heroicons/react/24/outline';
 import api from '../../services/api';
 
-const UserDetailModal = ({ user, onClose, onDelete }) => {
+const UserDetailModal = ({ user, onClose, onDelete, onActivateAccount, onDeactivateAccount }) => {
   const [userProfile, setUserProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -146,19 +148,47 @@ const UserDetailModal = ({ user, onClose, onDelete }) => {
         )}
 
           <div className="border-t mt-6 pt-6">
-            <div className="flex justify-end space-x-3">
-              <button
-                onClick={() => onDelete(user.id)}
-                className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
-              >
-                Delete User
-              </button>
-              <button
-                onClick={onClose}
-                className="px-4 py-2 bg-gray-200 text-gray-800 text-sm font-medium rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-500"
-              >
-                Close
-              </button>
+            <div className="flex justify-between items-center">
+              <div className="flex space-x-3">
+                {user.is_active ? (
+                  <button
+                    onClick={() => {
+                      onDeactivateAccount(user.id);
+                      onClose();
+                    }}
+                    className="flex items-center px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
+                  >
+                    <XCircleIcon className="h-4 w-4 mr-2" />
+                    Deactivate Account
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => {
+                      onActivateAccount(user.id);
+                      onClose();
+                    }}
+                    className="flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500"
+                  >
+                    <CheckCircleIcon className="h-4 w-4 mr-2" />
+                    Activate Account
+                  </button>
+                )}
+              </div>
+              
+              <div className="flex space-x-3">
+                <button
+                  onClick={() => onDelete(user.id)}
+                  className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
+                >
+                  Delete User
+                </button>
+                <button
+                  onClick={onClose}
+                  className="px-4 py-2 bg-gray-200 text-gray-800 text-sm font-medium rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -198,23 +228,41 @@ const UserManagement = () => {
     setError(null);
     
     try {
-      const response = await api.get('/api/v1/users', {
-        params: { admin: true },
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('session_id')}`,
-          'Content-Type': 'application/json'
-        }
-      });
+      // Fetch users and accounts in parallel
+      const [usersResponse, accountsResponse] = await Promise.all([
+        api.get('/api/v1/users', {
+          params: { admin: true },
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('session_id')}`,
+            'Content-Type': 'application/json'
+          }
+        }),
+        api.get('/api/v1/accounts', {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('session_id')}`,
+            'Content-Type': 'application/json'
+          }
+        })
+      ]);
       
-      if (response.data && Array.isArray(response.data)) {
-        const normalUsers = response.data.filter(user => user.admin !== true);
+      if (usersResponse.data && Array.isArray(usersResponse.data)) {
+        const normalUsers = usersResponse.data.filter(user => user.admin !== true);
+        const accounts = accountsResponse.data || [];
+        
+        // Create a map of user_id to account status
+        const accountStatusMap = {};
+        accounts.forEach(account => {
+          accountStatusMap[account.user_id] = account.status;
+        });
+        
         const formattedUsers = normalUsers.map(user => ({
           id: user.id,
           username: user.fullname || 'N/A',
           email: user.email,
           phone_number: user.phone_number,
           is_admin: user.admin === true,
-          is_active: user.is_verified === true,
+          is_active: accountStatusMap[user.id] === 'active',
+          account_status: accountStatusMap[user.id] || 'inactive',
           created_at: user.created_at || new Date().toISOString()
         }));
         
@@ -269,6 +317,52 @@ const UserManagement = () => {
     } catch (err) {
       console.error('Error deleting user:', err);
       setError(`Failed to delete user: ${err.response?.data?.message || 'Unknown error'}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Activate user account
+  const activateAccount = async (userId) => {
+    if (!window.confirm('Are you sure you want to activate this user\'s account?')) {
+      return;
+    }
+    
+    setIsLoading(true);
+    try {
+      await api.post(`/api/v1/accounts/activate/${userId}`, {}, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('session_id')}`,
+        }
+      });
+      fetchUsers();
+      setError(null);
+    } catch (err) {
+      console.error('Error activating account:', err);
+      setError(`Failed to activate account: ${err.response?.data?.message || 'Unknown error'}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Deactivate user account
+  const deactivateAccount = async (userId) => {
+    if (!window.confirm('Are you sure you want to deactivate this user\'s account?')) {
+      return;
+    }
+    
+    setIsLoading(true);
+    try {
+      await api.post(`/api/v1/accounts/deactivate/${userId}`, {}, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('session_id')}`,
+        }
+      });
+      fetchUsers();
+      setError(null);
+    } catch (err) {
+      console.error('Error deactivating account:', err);
+      setError(`Failed to deactivate account: ${err.response?.data?.message || 'Unknown error'}`);
     } finally {
       setIsLoading(false);
     }
@@ -375,7 +469,7 @@ const UserManagement = () => {
                         </span>
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap text-sm font-medium">
-                        <div className="flex justify-center space-x-3">
+                        <div className="flex justify-center space-x-2">
                           <button 
                             className="text-indigo-600 hover:text-indigo-900"
                             onClick={() => {
@@ -383,10 +477,32 @@ const UserManagement = () => {
                               setShowDetailModal(true);
                             }}
                             aria-label="View user details"
+                            title="View Details"
                           >
                             <EyeIcon className="h-5 w-5" />
                           </button>
                           
+                          {user.is_active ? (
+                            <button 
+                              className="text-red-600 hover:text-red-900"
+                              onClick={() => deactivateAccount(user.id)}
+                              aria-label="Deactivate account"
+                              title="Deactivate Account"
+                              disabled={isLoading}
+                            >
+                              <XCircleIcon className="h-5 w-5" />
+                            </button>
+                          ) : (
+                            <button 
+                              className="text-green-600 hover:text-green-900"
+                              onClick={() => activateAccount(user.id)}
+                              aria-label="Activate account"
+                              title="Activate Account"
+                              disabled={isLoading}
+                            >
+                              <CheckCircleIcon className="h-5 w-5" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -406,6 +522,8 @@ const UserManagement = () => {
             setCurrentUser(null);
           }}
           onDelete={deleteUser}
+          onActivateAccount={activateAccount}
+          onDeactivateAccount={deactivateAccount}
         />
       )}
       
