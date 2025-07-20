@@ -3,7 +3,7 @@ import StripeForm from './StripeForm';
 import { 
   CheckCircleIcon, 
   ExclamationCircleIcon,
-  CurrencyDollarIcon 
+  BanknotesIcon 
 } from '@heroicons/react/24/outline';
 
 const Deposit = ({ user, onTransactionSuccess }) => {
@@ -57,9 +57,9 @@ const Deposit = ({ user, onTransactionSuccess }) => {
   };
 
   const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('en-ET', {
       style: 'currency',
-      currency: 'USD'
+      currency: 'ETB'
     }).format(amount);
   };
 
@@ -72,7 +72,7 @@ const Deposit = ({ user, onTransactionSuccess }) => {
         </label>
         <div className="relative rounded-md shadow-sm">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <CurrencyDollarIcon className="h-5 w-5 text-gray-400" />
+            <BanknotesIcon className="h-5 w-5 text-gray-400" />
           </div>
           <input
             type="number"

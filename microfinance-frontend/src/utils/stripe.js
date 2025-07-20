@@ -5,32 +5,32 @@
 /**
  * Format currency amount for display
  * @param {number} amount - Amount to format
- * @param {string} currency - Currency code (default: USD)
+ * @param {string} currency - Currency code (default: ETB)
  * @returns {string} Formatted currency string
  */
-export const formatCurrency = (amount, currency = 'USD') => {
-  return new Intl.NumberFormat('en-US', {
+export const formatCurrency = (amount, currency = 'ETB') => {
+  return new Intl.NumberFormat('en-ET', {
     style: 'currency',
     currency: currency
   }).format(amount);
 };
 
 /**
- * Convert dollars to cents for Stripe API
- * @param {number} dollars - Amount in dollars
- * @returns {number} Amount in cents
+ * Convert ETB to santim for Stripe API (ETB uses santim as smallest unit)
+ * @param {number} etb - Amount in ETB
+ * @returns {number} Amount in santim
  */
-export const dollarsToCents = (dollars) => {
-  return Math.round(dollars * 100);
+export const etbToSantim = (etb) => {
+  return Math.round(etb * 100);
 };
 
 /**
- * Convert cents to dollars from Stripe API
- * @param {number} cents - Amount in cents
- * @returns {number} Amount in dollars
+ * Convert santim to ETB from Stripe API
+ * @param {number} santim - Amount in santim
+ * @returns {number} Amount in ETB
  */
-export const centsToDollars = (cents) => {
-  return cents / 100;
+export const santimToEtb = (santim) => {
+  return santim / 100;
 };
 
 /**

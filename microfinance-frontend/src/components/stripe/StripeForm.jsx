@@ -50,7 +50,7 @@ const StripeForm = ({ amount, description, onPaymentSuccess, onPaymentError, use
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          amount: amount * 100, // Stripe expects amount in cents
+          amount: amount, // ETB doesn't use cents, send as whole numbers
           payment_method_id: paymentMethod.id,
           description: description,
           user_id: user.id,

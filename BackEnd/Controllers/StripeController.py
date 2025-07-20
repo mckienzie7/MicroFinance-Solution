@@ -24,8 +24,8 @@ class StripeController:
         """
         try:
             intent = stripe.PaymentIntent.create(
-                amount=amount,  # amount is in cents
-                currency='usd',
+                amount=amount,  # amount in smallest currency unit (cents for USD, but ETB doesn't use cents)
+                currency='etb',  # Ethiopian Birr
                 payment_method=payment_method_id,
                 description=description,
                 confirm=True,
@@ -50,9 +50,9 @@ class StripeController:
         if not all(field in data for field in required_fields):
             return jsonify({"error": "Missing data"}), 400
 
-        amount_cents = int(data['amount'] * 100)
+        amount_santim = int(data['amount'] * 100)  # Convert ETB to santim (smallest unit)
         description = f"Deposit for user {data['user_id']}"
-        intent = self._create_charge(amount_cents, data['payment_method_id'], description)
+        intent = self._create_charge(amount_santim, data['payment_method_id'], description)
 
         if isinstance(intent, dict) and 'error' in intent:
             return jsonify(intent), 400
@@ -97,13 +97,13 @@ class StripeController:
         if account.balance < data['amount']:
             return jsonify({"error": "Insufficient funds"}), 400
 
-        amount_cents = int(data['amount'] * 100)
+        amount_santim = int(data['amount'] * 100)  # Convert ETB to santim (smallest unit)
         description = f"Withdrawal for user {data['user_id']}"
 
         # For withdrawals, we might need a payout to the user's bank account.
         # This example assumes a charge, which might not be the correct Stripe flow
         # for paying out to users. This should be reviewed for production.
-        intent = self._create_charge(amount_cents, data['payment_method_id'], description)
+        intent = self._create_charge(amount_santim, data['payment_method_id'], description)
 
         if isinstance(intent, dict) and 'error' in intent:
             return jsonify(intent), 400
@@ -143,9 +143,9 @@ class StripeController:
         if not loan or loan.user_id != data['user_id']:
             return jsonify({"error": "Loan not found or access denied"}), 404
 
-        amount_cents = int(data['amount'] * 100)
+        amount_santim = int(data['amount'] * 100)  # Convert ETB to santim (smallest unit)
         description = f"Loan repayment for loan {data['loan_id']}"
-        intent = self._create_charge(amount_cents, data['payment_method_id'], description)
+        intent = self._create_charge(amount_santim, data['payment_method_id'], description)
 
         if isinstance(intent, dict) and 'error' in intent:
             return jsonify(intent), 400

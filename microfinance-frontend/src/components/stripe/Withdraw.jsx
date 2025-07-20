@@ -3,7 +3,7 @@ import StripeForm from './StripeForm';
 import { 
   CheckCircleIcon, 
   ExclamationCircleIcon,
-  CurrencyDollarIcon,
+  BanknotesIcon,
   ExclamationTriangleIcon
 } from '@heroicons/react/24/outline';
 
@@ -58,9 +58,9 @@ const Withdraw = ({ user, onTransactionSuccess, accountBalance = 0 }) => {
   };
 
   const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('en-ET', {
       style: 'currency',
-      currency: 'USD'
+      currency: 'ETB'
     }).format(amount);
   };
 
@@ -72,7 +72,7 @@ const Withdraw = ({ user, onTransactionSuccess, accountBalance = 0 }) => {
       {/* Available Balance Info */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
         <div className="flex items-center">
-          <CurrencyDollarIcon className="h-5 w-5 text-blue-400 mr-2" />
+          <BanknotesIcon className="h-5 w-5 text-blue-400 mr-2" />
           <span className="text-blue-700 text-sm">
             Available Balance: <span className="font-semibold">{formatCurrency(accountBalance)}</span>
           </span>
@@ -86,7 +86,7 @@ const Withdraw = ({ user, onTransactionSuccess, accountBalance = 0 }) => {
         </label>
         <div className="relative rounded-md shadow-sm">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <CurrencyDollarIcon className="h-5 w-5 text-gray-400" />
+            <BanknotesIcon className="h-5 w-5 text-gray-400" />
           </div>
           <input
             type="number"
