@@ -243,7 +243,7 @@ const Dashboard = () => {
         });
       }
 
-      // Fetch actual credit score
+      // Fetch comprehensive credit score
       let creditScoreData = {
         score: 0,
         maxScore: 850,
@@ -251,7 +251,7 @@ const Dashboard = () => {
       };
 
       try {
-        const creditScoreResponse = await api.get('/api/v1/credit-score', { headers });
+        const creditScoreResponse = await api.get('/api/v1/comprehensive-credit-score', { headers });
         if (creditScoreResponse.data) {
           creditScoreData = {
             score: creditScoreResponse.data.credit_score || 0,
@@ -260,8 +260,21 @@ const Dashboard = () => {
           };
         }
       } catch (creditError) {
-        console.error('Error fetching credit score:', creditError);
-        // Keep default values if credit score fetch fails
+        console.error('Error fetching comprehensive credit score:', creditError);
+        // Fallback to old credit score system
+        try {
+          const fallbackResponse = await api.get('/api/v1/credit-score', { headers });
+          if (fallbackResponse.data) {
+            creditScoreData = {
+              score: fallbackResponse.data.credit_score || 0,
+              maxScore: 850,
+              category: fallbackResponse.data.score_rating || 'No Data'
+            };
+          }
+        } catch (fallbackError) {
+          console.error('Error fetching fallback credit score:', fallbackError);
+          // Keep default values if both systems fail
+        }
       }
 
       // Update dashboard data

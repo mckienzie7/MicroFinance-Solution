@@ -127,6 +127,7 @@ class AICredoScoreModel:
                 loan_to_deposit_ratio = total_loan_amount / max(total_deposits, 1)
             else:
                 repayment_ratio = 1.0  # No loans is considered good
+                repaid_loans = 0
                 outstanding_loans = 0
                 loan_to_deposit_ratio = 0
             

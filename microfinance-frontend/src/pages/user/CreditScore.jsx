@@ -15,9 +15,12 @@ import api from '../../services/api';
 const CreditScore = () => {
   const [scoreData, setScoreData] = useState(null);
   const [scoreHistory, setScoreHistory] = useState([]);
+  const [loanEligibility, setLoanEligibility] = useState(null);
+  const [scoreComparison, setScoreComparison] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
+  const [isComprehensive, setIsComprehensive] = useState(false);
   
   // Calculate score metrics
   const score = scoreData?.credit_score || 0;
@@ -51,7 +54,7 @@ const CreditScore = () => {
   
   const scoreColor = getScoreColor(score);
   
-  // Fetch credit score data from API
+  // Fetch comprehensive credit score data from API
   const fetchCreditScore = async () => {
     setIsLoading(true);
     setError(null);
@@ -62,13 +65,34 @@ const CreditScore = () => {
         'Content-Type': 'application/json'
       };
 
-      const [scoreResponse, historyResponse] = await Promise.all([
-        api.get('/api/v1/credit-score', { headers }),
-        api.get('/api/v1/credit-score/history', { headers })
-      ]);
-      
-      setScoreData(scoreResponse.data);
-      setScoreHistory(historyResponse.data.history || []);
+      // Try comprehensive credit score first
+      try {
+        const [scoreResponse, historyResponse, eligibilityResponse, comparisonResponse] = await Promise.all([
+          api.get('/api/v1/comprehensive-credit-score', { headers }),
+          api.get('/api/v1/comprehensive-credit-score/history', { headers }),
+          api.get('/api/v1/comprehensive-credit-score/loan-eligibility', { headers }),
+          api.get('/api/v1/comprehensive-credit-score/comparison', { headers })
+        ]);
+        
+        setScoreData(scoreResponse.data);
+        setScoreHistory(historyResponse.data.history || []);
+        setLoanEligibility(eligibilityResponse.data.loan_eligibility || null);
+        setScoreComparison(comparisonResponse.data || null);
+        setIsComprehensive(true);
+        
+      } catch (comprehensiveError) {
+        console.error('Error fetching comprehensive credit score, falling back to old system:', comprehensiveError);
+        
+        // Fallback to old credit score system
+        const [scoreResponse, historyResponse] = await Promise.all([
+          api.get('/api/v1/credit-score', { headers }),
+          api.get('/api/v1/credit-score/history', { headers })
+        ]);
+        
+        setScoreData(scoreResponse.data);
+        setScoreHistory(historyResponse.data.history || []);
+        setIsComprehensive(false);
+      }
       
     } catch (err) {
       console.error('Error fetching credit score:', err);
@@ -118,10 +142,24 @@ const CreditScore = () => {
       
       {scoreData && (
         <>
+          {/* System Type Indicator */}
+          {isComprehensive && (
+            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-center">
+                <ChartBarIcon className="h-5 w-5 text-blue-600 mr-2" />
+                <span className="text-blue-800 font-medium">Comprehensive AI Credit Score System</span>
+                <span className="ml-2 text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">Enhanced</span>
+              </div>
+            </div>
+          )}
+
           {/* Tab Navigation */}
           <div className="border-b border-gray-200 mb-6">
             <nav className="-mb-px flex space-x-8">
-              {['overview', 'factors', 'history', 'recommendations'].map((tab) => (
+              {(isComprehensive 
+                ? ['overview', 'breakdown', 'factors', 'eligibility', 'comparison', 'history', 'recommendations']
+                : ['overview', 'factors', 'history', 'recommendations']
+              ).map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
@@ -131,7 +169,7 @@ const CreditScore = () => {
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   }`}
                 >
-                  {tab}
+                  {tab === 'breakdown' ? 'Score Breakdown' : tab}
                 </button>
               ))}
             </nav>
@@ -326,6 +364,239 @@ const CreditScore = () => {
                 <div className="text-center py-12 text-gray-500">
                   <ClockIcon className="h-16 w-16 mx-auto mb-4 text-gray-300" />
                   <p className="text-xl">No history data available</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Score Breakdown Tab (Comprehensive only) */}
+          {activeTab === 'breakdown' && isComprehensive && scoreData.score_breakdown && (
+            <div className="bg-white rounded-xl shadow-lg p-8">
+              <h3 className="text-2xl font-semibold mb-6">Detailed Score Breakdown</h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {Object.entries(scoreData.score_breakdown).map(([component, data]) => (
+                  <div key={component} className="bg-gray-50 rounded-lg p-6">
+                    <h4 className="text-lg font-semibold mb-3 capitalize">
+                      {component.replace('_', ' ')}
+                    </h4>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Component Score:</span>
+                        <span className="font-semibold">{data.score}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Weight:</span>
+                        <span className="font-semibold">{(data.weight * 100).toFixed(0)}%</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Contribution:</span>
+                        <span className="font-semibold text-blue-600">{data.contribution} points</span>
+                      </div>
+                      <div className="mt-3 h-2 w-full bg-gray-200 rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-blue-500 rounded-full"
+                          style={{ width: `${(data.score / 850) * 100}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Loan Eligibility Tab (Comprehensive only) */}
+          {activeTab === 'eligibility' && isComprehensive && loanEligibility && (
+            <div className="bg-white rounded-xl shadow-lg p-8">
+              <h3 className="text-2xl font-semibold mb-6 flex items-center">
+                <CurrencyDollarIcon className="h-6 w-6 mr-2 text-green-500" />
+                Loan Eligibility Assessment
+              </h3>
+              
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Eligibility Status */}
+                <div className="space-y-6">
+                  <div className={`p-6 rounded-lg border-2 ${
+                    loanEligibility.eligible 
+                      ? 'border-green-200 bg-green-50' 
+                      : 'border-red-200 bg-red-50'
+                  }`}>
+                    <div className="flex items-center mb-4">
+                      {loanEligibility.eligible ? (
+                        <CheckCircleIcon className="h-8 w-8 text-green-500 mr-3" />
+                      ) : (
+                        <ExclamationTriangleIcon className="h-8 w-8 text-red-500 mr-3" />
+                      )}
+                      <div>
+                        <h4 className="text-xl font-semibold">
+                          {loanEligibility.eligible ? 'Eligible for Loans' : 'Not Eligible'}
+                        </h4>
+                        <p className={`text-sm ${
+                          loanEligibility.eligible ? 'text-green-700' : 'text-red-700'
+                        }`}>
+                          Status: {loanEligibility.status}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    {loanEligibility.eligible && (
+                      <div className="space-y-3">
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Max Loan Amount:</span>
+                          <span className="font-semibold text-green-600">
+                            ETB {loanEligibility.max_loan_amount?.toLocaleString()}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Recommended Amount:</span>
+                          <span className="font-semibold">
+                            ETB {loanEligibility.recommended_amount?.toLocaleString()}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Interest Rate Range:</span>
+                          <span className="font-semibold">
+                            {loanEligibility.interest_rate_range?.[0]}% - {loanEligibility.interest_rate_range?.[1]}%
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Approval Probability:</span>
+                          <span className="font-semibold text-blue-600">
+                            {loanEligibility.approval_probability}%
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Loan Terms */}
+                {loanEligibility.terms && (
+                  <div className="space-y-4">
+                    <h4 className="text-lg font-semibold">Loan Terms</h4>
+                    <div className="space-y-3">
+                      <div className="flex justify-between p-3 bg-gray-50 rounded">
+                        <span className="text-gray-600">Repayment Period:</span>
+                        <span className="font-semibold">
+                          {loanEligibility.terms.min_repayment_period} - {loanEligibility.terms.max_repayment_period} months
+                        </span>
+                      </div>
+                      <div className="flex justify-between p-3 bg-gray-50 rounded">
+                        <span className="text-gray-600">Collateral Required:</span>
+                        <span className={`font-semibold ${
+                          loanEligibility.terms.collateral_required ? 'text-red-600' : 'text-green-600'
+                        }`}>
+                          {loanEligibility.terms.collateral_required ? 'Yes' : 'No'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between p-3 bg-gray-50 rounded">
+                        <span className="text-gray-600">Guarantor Required:</span>
+                        <span className={`font-semibold ${
+                          loanEligibility.terms.guarantor_required ? 'text-red-600' : 'text-green-600'
+                        }`}>
+                          {loanEligibility.terms.guarantor_required ? 'Yes' : 'No'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Score Comparison Tab (Comprehensive only) */}
+          {activeTab === 'comparison' && isComprehensive && scoreComparison && (
+            <div className="bg-white rounded-xl shadow-lg p-8">
+              <h3 className="text-2xl font-semibold mb-6">Score Comparison</h3>
+              
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* User vs Average */}
+                <div className="space-y-4">
+                  <h4 className="text-lg font-semibold">Your Score vs Average</h4>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center p-4 bg-blue-50 rounded-lg">
+                      <span className="text-gray-700">Your Score:</span>
+                      <span className="text-2xl font-bold text-blue-600">{scoreComparison.user_score}</span>
+                    </div>
+                    <div className="flex justify-between items-center p-4 bg-gray-50 rounded-lg">
+                      <span className="text-gray-700">Average Score:</span>
+                      <span className="text-xl font-semibold text-gray-600">
+                        {scoreComparison.average_scores?.overall}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center p-4 rounded-lg border-2 border-dashed">
+                      <span className="text-gray-700">Difference:</span>
+                      <span className={`text-xl font-bold ${
+                        scoreComparison.comparison?.difference_from_average >= 0 
+                          ? 'text-green-600' 
+                          : 'text-red-600'
+                      }`}>
+                        {scoreComparison.comparison?.difference_from_average >= 0 ? '+' : ''}
+                        {scoreComparison.comparison?.difference_from_average}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Percentile Ranking */}
+                <div className="space-y-4">
+                  <h4 className="text-lg font-semibold">Percentile Ranking</h4>
+                  <div className="text-center">
+                    <div className="relative w-32 h-32 mx-auto mb-4">
+                      <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
+                        <circle
+                          className="text-gray-200"
+                          strokeWidth="8"
+                          stroke="currentColor"
+                          fill="transparent"
+                          r="40"
+                          cx="50"
+                          cy="50"
+                        />
+                        <circle
+                          className="text-blue-500"
+                          strokeWidth="8"
+                          strokeDasharray={`${2 * Math.PI * 40}`}
+                          strokeDashoffset={`${2 * Math.PI * 40 * (1 - scoreComparison.user_percentile / 100)}`}
+                          strokeLinecap="round"
+                          stroke="currentColor"
+                          fill="transparent"
+                          r="40"
+                          cx="50"
+                          cy="50"
+                        />
+                      </svg>
+                      <div className="absolute inset-0 flex flex-col items-center justify-center">
+                        <span className="text-2xl font-bold text-blue-600">
+                          {scoreComparison.user_percentile}th
+                        </span>
+                        <span className="text-xs text-gray-500">percentile</span>
+                      </div>
+                    </div>
+                    <p className="text-gray-600">
+                      You score better than {scoreComparison.user_percentile}% of users
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Category Averages */}
+              {scoreComparison.average_scores && (
+                <div className="mt-6 pt-6 border-t">
+                  <h4 className="text-lg font-semibold mb-4">Category Averages</h4>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {Object.entries(scoreComparison.average_scores)
+                      .filter(([key]) => key !== 'overall')
+                      .map(([category, avgScore]) => (
+                      <div key={category} className="text-center p-3 bg-gray-50 rounded-lg">
+                        <div className="text-lg font-semibold text-gray-900">{avgScore}</div>
+                        <div className="text-sm text-gray-600 capitalize">
+                          {category.replace('_', ' ')}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
