@@ -45,9 +45,13 @@ class AICredoScoreModel:
             if not accounts:
                 return self._default_features()
             
-            # Calculate account age
-            oldest_account = min(accounts, key=lambda x: x.created_at)
-            account_age_days = (datetime.now() - oldest_account.created_at).days
+            # Calculate account age - use user creation date for more accurate history
+            if user.created_at:
+                account_age_days = (datetime.now() - user.created_at).days
+            else:
+                # Fallback to oldest account if user creation date is missing
+                oldest_account = min(accounts, key=lambda x: x.created_at)
+                account_age_days = (datetime.now() - oldest_account.created_at).days
             
             # Calculate total balance
             total_balance = sum(account.balance for account in accounts)
@@ -62,6 +66,7 @@ class AICredoScoreModel:
             transaction_count = len(transactions)
             deposit_count = len([t for t in transactions if t.transaction_type in ['deposit', 'credit']])
             withdrawal_count = len([t for t in transactions if t.transaction_type in ['withdrawal', 'debit']])
+            loan_repayment_count = len([t for t in transactions if t.transaction_type == 'loan_repayment'])
             
             if transactions:
                 amounts = [abs(t.amount) for t in transactions]
@@ -89,23 +94,40 @@ class AICredoScoreModel:
             total_loan_amount = sum(loan.amount for loan in loans)
             avg_loan_amount = total_loan_amount / loan_count if loan_count > 0 else 0
             
-            # Repayment analysis
+            # Repayment analysis - calculate based on actual repayment records
             if loans:
                 loan_ids = [loan.id for loan in loans]
                 repayments = session.query(Repayment).filter(
-                    Repayment.loan_id.in_(loan_ids)
+                    Repayment.loan_id.in_(loan_ids),
+                    Repayment.status == 'completed'
                 ).all()
-            else:
-                repayments = []
-            
-            repaid_loans = len([loan for loan in loans if loan.loan_status == 'repaid'])
-            outstanding_loans = len([loan for loan in loans if loan.loan_status in ['approved', 'active']])
-            
-            if loans:
-                repayment_ratio = repaid_loans / loan_count
+                
+                # Calculate total repayments made
+                total_repayments = sum(repayment.amount for repayment in repayments)
+                
+                # Calculate repayment ratio based on actual payments vs total loan amounts
+                if total_loan_amount > 0:
+                    repayment_ratio = min(1.0, total_repayments / total_loan_amount)
+                else:
+                    repayment_ratio = 1.0
+                
+                # Boost ratio for recent activity (active repayment behavior)
+                if loan_repayment_count > 0:
+                    recent_repayments = len([t for t in transactions 
+                                           if t.transaction_type == 'loan_repayment' 
+                                           and (datetime.now() - t.created_at).days <= 30])
+                    
+                    # Small bonus for active repayment behavior (max 10% boost)
+                    activity_bonus = min(0.1, recent_repayments * 0.02)
+                    repayment_ratio = min(1.0, repayment_ratio + activity_bonus)
+                
+                # Count loans by status
+                repaid_loans = len([loan for loan in loans if loan.loan_status == 'repaid'])
+                outstanding_loans = len([loan for loan in loans if loan.loan_status in ['approved', 'active']])
                 loan_to_deposit_ratio = total_loan_amount / max(total_deposits, 1)
             else:
                 repayment_ratio = 1.0  # No loans is considered good
+                outstanding_loans = 0
                 loan_to_deposit_ratio = 0
             
             # Account utilization and other metrics

@@ -11,6 +11,82 @@ from BackEnd.models.user import User
 # Initialize the controller
 credit_controller = CreditScoreController()
 
+@app_views.route('/credit-score/debug', methods=['GET'], strict_slashes=False)
+def debug_credit_score_data():
+    """Debug endpoint to see raw data used for credit score calculation"""
+    try:
+        auth_header = request.headers.get('Authorization')
+        if not auth_header or not auth_header.startswith('Bearer '):
+            return jsonify({"error": "Authentication required"}), 401
+        
+        token = auth_header.split(' ')[1]
+        auth_controller = AuthController()
+        user = auth_controller.get_user_from_session_id(token)
+        
+        if not user:
+            return jsonify({"error": "Authentication required"}), 401
+        
+        db_session = storage.session()
+        
+        # Import models
+        from BackEnd.models.Account import Account
+        from BackEnd.models.Transaction import Transaction
+        from BackEnd.models.Loan import Loan
+        
+        # Get raw data
+        accounts = db_session.query(Account).filter(Account.user_id == user.id).all()
+        
+        debug_data = {
+            "user_info": {
+                "user_id": user.id,
+                "username": user.username,
+                "created_at": user.created_at.isoformat() if user.created_at else None
+            },
+            "accounts": []
+        }
+        
+        for account in accounts:
+            account_data = {
+                "account_id": account.id,
+                "account_number": account.account_number,
+                "balance": float(account.balance),
+                "created_at": account.created_at.isoformat() if account.created_at else None,
+                "status": account.status
+            }
+            
+            # Get transactions for this account
+            transactions = db_session.query(Transaction).filter(Transaction.account_id == account.id).all()
+            account_data["transactions"] = []
+            
+            for tx in transactions:
+                account_data["transactions"].append({
+                    "id": tx.id,
+                    "amount": float(tx.amount),
+                    "transaction_type": tx.transaction_type,
+                    "description": tx.description,
+                    "created_at": tx.created_at.isoformat() if tx.created_at else None
+                })
+            
+            # Get loans for this account
+            loans = db_session.query(Loan).filter(Loan.account_id == account.id).all()
+            account_data["loans"] = []
+            
+            for loan in loans:
+                account_data["loans"].append({
+                    "id": loan.id,
+                    "amount": float(loan.amount),
+                    "loan_status": loan.loan_status,
+                    "created_at": loan.created_at.isoformat() if loan.created_at else None
+                })
+            
+            debug_data["accounts"].append(account_data)
+        
+        db_session.close()
+        return jsonify(debug_data), 200
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 @app_views.route('/credit-score/test', methods=['GET'], strict_slashes=False)
 def test_credit_score_auth():
     """Test authentication for credit score endpoints"""
@@ -78,7 +154,8 @@ def get_user_credit_score():
             'factors': factors,
             'recommendations': recommendations,
             'insights': credit_controller._generate_insights(user_features, credit_score),
-            'last_updated': 'now'
+            'last_updated': 'now',
+            'debug_features': user_features  # Add debug info to see what data is being used
         }
         
         db_session.close()

@@ -68,19 +68,20 @@ class LoanController:
             self.db.new(account)
             self.db.save()
 
+        # Calculate total amount including interest
+        total_interest = amount * (interest_rate / 100) * (repayment_period / 12)
+        total_loan_amount = amount + total_interest
+        
         # Calculate end date based on repayment period
         start_date = datetime.now()
         end_date = start_date + timedelta(days=repayment_period * 30)  # Assuming 30 days per month
 
         new_loan = Loan(
-            user_id=user_id,
             admin_id=admin_id,
             account_id=account.id,
-            amount=amount,
+            amount=total_loan_amount,  # Store total amount including interest
             interest_rate=interest_rate,
             repayment_period=repayment_period,
-            purpose=purpose,
-            start_date=start_date,
             end_date=end_date,
             loan_status="pending"
         )
@@ -122,36 +123,30 @@ class LoanController:
             if not account:
                 raise NoResultFound("Account not found")
 
-            # Calculate loan details
-            total_interest = loan.amount * (loan.interest_rate / 100) * (loan.repayment_period / 12)
-            total_amount = loan.amount + total_interest
-            monthly_payment = total_amount / loan.repayment_period
-
             # Update loan status and details
             loan.loan_status = "active"
-            loan.start_date = datetime.now()
-            loan.end_date = loan.start_date + timedelta(days=30 * loan.repayment_period)
-            loan.next_payment_date = loan.start_date + timedelta(days=30)
-            loan.remaining_balance = total_amount
-            loan.total_interest = total_interest
-            loan.monthly_payment = monthly_payment
+            loan.end_date = datetime.now() + timedelta(days=30 * loan.repayment_period)
+
+            # For loan disbursement, we give the principal amount (without interest) to the user
+            # But the loan.amount already includes interest, so we need to calculate the principal
+            principal_amount = loan.amount / (1 + (loan.interest_rate / 100) * (loan.repayment_period / 12))
 
             # Create transaction for loan disbursement
             transaction = Transaction(
                 account_id=account.id,
-                amount=loan.amount,
+                amount=principal_amount,  # Disburse only the principal amount
                 transaction_type="loan_disbursement",
                 description=f"Loan disbursement for loan {loan_id}"
             )
             self.db.new(transaction)
 
-            # Update account balance
-            account.balance += loan.amount
+            # Update account balance with principal amount only
+            account.balance += principal_amount
             self.db.save()
 
             # Create loan approval notification
             self.notification_controller.notify_loan_approval(
-                user_id=loan.user_id,
+                user_id=account.user_id,
                 amount=loan.amount,
                 loan_id=loan_id
             )
@@ -185,6 +180,10 @@ class LoanController:
         if account.balance < amount:
             raise ValueError("Insufficient funds for repayment")
 
+        # Check if payment amount doesn't exceed remaining loan amount
+        if amount > loan.amount:
+            amount = loan.amount  # Cap the payment to remaining loan amount
+
         # Create repayment transaction
         transaction = Transaction(
             account_id=account.id,
@@ -197,16 +196,20 @@ class LoanController:
         # Update account balance
         account.balance -= amount
 
+        # IMPORTANT: Reduce the loan amount by the payment amount
+        loan.amount -= amount
+        
         # Update loan status if fully repaid
-        if amount >= loan.amount:
+        if loan.amount <= 0:
             loan.loan_status = "paid"
             loan.end_date = datetime.now()
+            loan.amount = 0  # Ensure it doesn't go negative
 
         self.db.save()
         
         # Create loan repayment notification
         self.notification_controller.notify_loan_repayment(
-            user_id=loan.user_id,
+            user_id=account.user_id,
             amount=amount,
             loan_id=loan_id
         )
@@ -227,7 +230,8 @@ class LoanController:
 
         monthly_payment = self._calculate_monthly_payment(loan)
         schedule = []
-        current_date = loan.start_date
+        # Use created_at as start date since start_date doesn't exist in DB
+        current_date = loan.created_at
 
         for month in range(loan.repayment_period):
             schedule.append({
@@ -240,10 +244,8 @@ class LoanController:
 
     def _calculate_monthly_payment(self, loan: Loan) -> float:
         """Calculate monthly payment amount"""
-        # Simple interest calculation
-        total_interest = loan.amount * (loan.interest_rate / 100) * (loan.repayment_period / 12)
-        total_amount = loan.amount + total_interest
-        return total_amount / loan.repayment_period
+        # The loan.amount already includes interest, so just divide by repayment period
+        return loan.amount / loan.repayment_period
 
     def get_loan_repayments(self, loan_id: str) -> List[Transaction]:
         """Get all repayments for a loan"""
@@ -305,16 +307,18 @@ class LoanController:
             raise ValueError("Invalid admin")
 
         loan.loan_status = "rejected"
-        loan.rejection_reason = reason
         self.db.save()
         
-        # Create loan rejection notification
-        self.notification_controller.notify_loan_rejection(
-            user_id=loan.user_id,
-            amount=loan.amount,
-            reason=reason,
-            loan_id=loan_id
-        )
+        # Get the account to find the user_id
+        account = self.db.get(Account, loan.account_id)
+        if account:
+            # Create loan rejection notification
+            self.notification_controller.notify_loan_rejection(
+                user_id=account.user_id,
+                amount=loan.amount,
+                reason=reason,
+                loan_id=loan_id
+            )
         
         return loan
 
@@ -347,11 +351,18 @@ class LoanController:
         if loan.loan_status not in ["active", "paid"]:
             raise ValueError("Can only get repayment schedule for active or paid loans")
 
-        # Calculate schedule
+        # Calculate schedule using available fields
+        monthly_payment = self._calculate_monthly_payment(loan)
+        total_interest = loan.amount * (loan.interest_rate / 100) * (loan.repayment_period / 12)
+        total_amount = loan.amount + total_interest
+        
+        # Get all previous repayments
+        previous_repayments = self.get_loan_repayments(loan_id)
+        total_paid = sum(abs(repayment.amount) for repayment in previous_repayments)
+        remaining_balance = total_amount - total_paid
+        
         schedule = []
-        current_date = loan.start_date
-        remaining_balance = loan.remaining_balance
-        monthly_payment = loan.monthly_payment
+        current_date = loan.created_at  # Use created_at as start date
 
         for month in range(loan.repayment_period):
             payment_amount = monthly_payment
@@ -364,7 +375,7 @@ class LoanController:
                 "amount": payment_amount,
                 "status": "pending",
                 "payment_number": month + 1,
-                "remaining_balance": remaining_balance - payment_amount
+                "remaining_balance": max(0, remaining_balance - payment_amount)
             })
             remaining_balance -= payment_amount
 

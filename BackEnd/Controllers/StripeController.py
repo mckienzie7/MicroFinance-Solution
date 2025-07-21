@@ -7,6 +7,7 @@ from os import getenv
 from BackEnd.Controllers.AccountController import AccountController
 from BackEnd.Controllers.TransactionController import TransactionController
 from BackEnd.Controllers.NotificationController import NotificationController
+from BackEnd.Controllers.LoanController import LoanController
 from BackEnd.models.Loan import Loan
 
 stripe.api_key = getenv('STRIPE_SECRET_KEY')
@@ -19,6 +20,7 @@ class StripeController:
         self.account_controller = AccountController()
         self.transaction_controller = TransactionController()
         self.notification_controller = NotificationController()
+        self.loan_controller = LoanController()
 
     def _create_charge(self, amount, payment_method_id, description):
         """
@@ -197,27 +199,35 @@ class StripeController:
                 stripe_charge_id=intent.id
             )
             storage.new(new_payment)
-
-            # Update loan and create transaction
-            loan.amount -= data['amount']
             storage.save()
 
-            # Create transaction record (account was already retrieved above)
-            self.transaction_controller.create_transaction(
-                account_id=account.id,
-                amount=data['amount'],
-                transaction_type='loan_repayment',
-                description=description
-            )
+            try:
+                # Use LoanController to properly handle the repayment and update loan balance
+                transaction, updated_loan = self.loan_controller.make_repayment(
+                    loan_id=data['loan_id'],
+                    amount=data['amount']
+                )
 
-            # Create success notification
-            self.notification_controller.notify_loan_repayment(
-                user_id=data['user_id'],
-                amount=data['amount'],
-                loan_id=data['loan_id']
-            )
+                # Create repayment record
+                from BackEnd.models.Repayment import Repayment
+                repayment = Repayment(
+                    loan_id=data['loan_id'],
+                    amount=data['amount'],
+                    status='completed'
+                )
+                storage.new(repayment)
+                storage.save()
 
-            return jsonify({'status': 'success', 'payment_intent_id': intent.id})
+                return jsonify({
+                    'status': 'success', 
+                    'payment_intent_id': intent.id,
+                    'loan_status': updated_loan.loan_status,
+                    'message': 'Loan repayment successful'
+                })
+            
+            except Exception as e:
+                # If loan repayment fails, we should handle this appropriately
+                return jsonify({'error': f'Repayment processing failed: {str(e)}'}), 500
         else:
             # Create failure notification
             self.notification_controller.notify_payment_failure(
