@@ -31,7 +31,8 @@ class AuthController:
         self._userC = UserController()
 
     def register_user(self, username: str, email: str, password: str, admin: bool = False, 
-                     fullname: str = None, phone_number: str = None, fayda_document = None) -> User:
+                     fullname: str = None, phone_number: str = None, fayda_document = None,
+                     id_card_front = None, id_card_back = None) -> User:
         """Register a new user in the database."""
         new_user = None
         try:
@@ -47,9 +48,18 @@ class AuthController:
                 phone_number=phone_number
             )
             
-            # Handle Fayda document upload if present
+            # Handle file uploads if present
             if fayda_document:
                 new_user.update_fayda_document(fayda_document)
+            
+            if id_card_front:
+                new_user.update_id_card_front(id_card_front)
+            
+            if id_card_back:
+                new_user.update_id_card_back(id_card_back)
+            
+            # Save all file uploads
+            if fayda_document or id_card_front or id_card_back:
                 self._db.save()
             
             # Send verification email

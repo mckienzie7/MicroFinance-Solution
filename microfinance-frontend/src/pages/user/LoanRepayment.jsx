@@ -1,50 +1,35 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import api from '../../services/api';
+import ModernPaymentForm from '../../components/payments/ModernPaymentForm';
 import RepaymentTransactions from '../../components/RepaymentTransactions';
-import StripePayment from '../../components/StripePayment';
 import {
-  ArrowPathIcon, 
-  CheckCircleIcon, 
-  ExclamationCircleIcon,
   CreditCardIcon,
-  CurrencyDollarIcon,
-  CalendarIcon,
+  ArrowLeftIcon,
+  ExclamationTriangleIcon,
+  CheckCircleIcon,
   ClockIcon,
-  InformationCircleIcon
+  InformationCircleIcon,
+  BanknotesIcon
 } from '@heroicons/react/24/outline';
 
 const LoanRepayment = () => {
   const { user, isAuthenticated } = useAuth();
   const [loans, setLoans] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [successMessage, setSuccessMessage] = useState('');
-  
-  // Payment form state
-  const [paymentForm, setPaymentForm] = useState({
-    loan_id: '',
-    amount: '',
-    payment_method: 'bank_transfer',
-    description: 'Loan repayment'
-  });
-  
-  // Form validation state
-  const [formErrors, setFormErrors] = useState({});
-  
-  // Selected loan for payment
   const [selectedLoan, setSelectedLoan] = useState(null);
-  
-  // Fetch loans on component mount
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [paymentAmount, setPaymentAmount] = useState('');
+  const [paymentLoading, setPaymentLoading] = useState(false);
+
   useEffect(() => {
     if (isAuthenticated && user) {
       fetchLoans();
     }
   }, [isAuthenticated, user]);
-  
-  // Fetch loans from API
+
   const fetchLoans = async () => {
-    setIsLoading(true);
+    setLoading(true);
     setError(null);
     
     try {
@@ -52,13 +37,10 @@ const LoanRepayment = () => {
       const userAccounts = accountsResponse.data;
 
       if (!userAccounts || userAccounts.length === 0) {
-        const errorMsg = 'No account found. Please create an account first.';
-        console.error(errorMsg);
-        setError(errorMsg);
+        setError('No account found. Please create an account first.');
         return;
       }
 
-      const userAccount = userAccounts[0];
       const loansResponse = await api.get('/api/v1/loans');
       
       // Filter loans to show only those that are active/approved and have a remaining balance
@@ -78,39 +60,44 @@ const LoanRepayment = () => {
       activeLoans.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
       
       setLoans(activeLoans);
-      
-      if (activeLoans.length > 0) {
-        setSelectedLoan(activeLoans[0]);
-        setPaymentForm(prev => ({ 
-          ...prev, 
-          loan_id: activeLoans[0].id,
-          amount: '' // Reset amount when loan changes
-        }));
-      }
     } catch (err) {
       console.error('Error fetching loans:', err);
       setError('Failed to load loans. Please try again later.');
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
-  
-  // Handle form input changes
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setPaymentForm(prev => ({ ...prev, [name]: value }));
-    
-    if (formErrors[name]) {
-      setFormErrors(prev => ({ ...prev, [name]: null }));
-    }
-    
-    if (name === 'loan_id') {
-      const loan = loans.find(l => l.id === value);
-      setSelectedLoan(loan || null);
+
+  const handlePayment = async (paymentData) => {
+    setPaymentLoading(true);
+    try {
+      const response = await api.post('/api/v1/stripe/repay_loan', {
+        loan_id: selectedLoan.id,
+        amount: paymentData.amount,
+        payment_method_id: 'pm_card_visa', // Mock payment method
+        user_id: user.id,
+      }, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('session_id')}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      // Refresh loans after successful payment
+      await fetchLoans();
+      
+      // Reset form
+      setPaymentAmount('');
+      
+      return response.data;
+    } catch (err) {
+      console.error('Error processing payment:', err);
+      throw new Error(err.response?.data?.error || 'Payment failed');
+    } finally {
+      setPaymentLoading(false);
     }
   };
-  
-  // Format currency for display
+
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -118,259 +105,244 @@ const LoanRepayment = () => {
     }).format(amount);
   };
 
-  // Calculate remaining balance for a loan (principal only)
   const getRemainingBalance = (loan) => {
     const balance = loan.remaining_balance || loan.amount || 0;
     return parseFloat(balance);
   };
 
-  // Calculate total amount due (principal + interest)
   const getTotalAmountDue = (loan) => {
     const principal = getRemainingBalance(loan);
-    const interestRate = parseFloat(loan.interest_rate || 0) / 100; // Convert percentage to decimal
+    const interestRate = parseFloat(loan.interest_rate || 0) / 100;
     const interest = principal * interestRate;
     return principal + interest;
   };
 
-  // Get suggested payment amounts (including interest)
-  const getSuggestedAmounts = (loan) => {
-    const totalDue = getTotalAmountDue(loan);
-    return [
-      totalDue * 0.25, // 25% of total due
-      totalDue * 0.5,  // 50% of total due
-      totalDue         // Full amount due (principal + interest)
-    ];
-  };
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-pink-50 flex justify-center items-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-purple-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 font-medium">Loading your loans...</p>
+        </div>
+      </div>
+    );
+  }
 
-  // Handle suggested amount click
-  const handleSuggestedAmountClick = (amount) => {
-    setPaymentForm(prev => ({
-      ...prev,
-      amount: amount.toFixed(2)
-    }));
-    // Clear any amount-related errors
-    setFormErrors(prev => ({ ...prev, amount: null }));
-  };
-  
-  // Validate the payment form
-  const validateForm = () => {
-    const errors = {};
-    
-    if (!paymentForm.loan_id) {
-      errors.loan_id = 'Please select a loan to repay';
-    }
-    
-    if (!paymentForm.amount || isNaN(paymentForm.amount) || parseFloat(paymentForm.amount) <= 0) {
-      errors.amount = 'Please enter a valid payment amount';
-    } else if (selectedLoan) {
-      const totalDue = getTotalAmountDue(selectedLoan);
-      if (parseFloat(paymentForm.amount) > totalDue) {
-        errors.amount = `Payment amount cannot exceed the total amount due of ${formatCurrency(totalDue)} (including interest)`;
-      }
-    } else if (selectedLoan && parseFloat(paymentForm.amount) > getRemainingBalance(selectedLoan)) {
-      errors.amount = `Payment amount cannot exceed the remaining balance of ${formatCurrency(getRemainingBalance(selectedLoan))}`;
-    }
-    
-    setFormErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
-  
-  // Submit loan payment
-  const handleStripeRepayment = async (paymentMethodId) => {
-    console.log('handleStripeRepayment called with paymentMethodId:', paymentMethodId);
-    
-    if (!validateForm()) {
-      console.log('Form validation failed');
-      return;
-    }
-    
-    setIsLoading(true);
-    setError(null);
-    setSuccessMessage('');
-    
-    try {
-      const paymentData = {
-        loan_id: paymentForm.loan_id,
-        amount: parseFloat(paymentForm.amount),
-        payment_method_id: paymentMethodId,
-        user_id: user.id,
-      };
-      
-      console.log('Sending payment data:', paymentData);
-      console.log('API endpoint:', '/api/v1/stripe/repay_loan');
-      
-      const response = await api.post('/api/v1/stripe/repay_loan', paymentData, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('session_id')}`,
-          'Content-Type': 'application/json'
-        }
-      });
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-pink-50 flex justify-center items-center p-4">
+        <div className="max-w-md w-full bg-white rounded-3xl shadow-2xl p-8 text-center">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
+            <ExclamationTriangleIcon className="w-8 h-8 text-red-600" />
+          </div>
+          <h3 className="text-2xl font-bold text-gray-900 mb-4">Error Loading Loans</h3>
+          <p className="text-gray-600 mb-6">{error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="w-full bg-gradient-to-r from-red-500 to-red-600 text-white py-3 px-6 rounded-xl font-semibold hover:from-red-600 hover:to-red-700 transition-all duration-200"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
 
-      console.log('Payment response:', response.data);
-      setSuccessMessage(`Payment of ${formatCurrency(parseFloat(paymentForm.amount))} processed successfully!`);
-      
-      setPaymentForm(prev => ({
-        ...prev,
-        amount: '',
-        description: 'Loan repayment'
-      }));
-      
-      await fetchLoans();
-    } catch (err) {
-      console.error('Error processing payment:', err);
-      console.error('Error details:', {
-        message: err.message,
-        response: err.response?.data,
-        status: err.response?.status,
-        request: err.request
-      });
-      
-      if (err.response) {
-        if (err.response.status === 500) {
-          setError('Server error: The payment could not be processed. Please try again later or contact support.');
-        } else if (err.response.status === 404) {
-          if (err.response.data?.error === 'Loan not found') {
-            setError('The selected loan could not be found. It may have been fully paid or removed. Please refresh the page and try again.');
-            fetchLoans();
-          } else {
-            setError('Payment endpoint not found. Please contact support.');
-          }
-        } else {
-          setError(`Payment failed: ${err.response.data?.error || err.response.data?.message || 'Unknown error'}`);
-        }
-      } else if (err.request) {
-        setError('Network error: Could not connect to the server. Please check your internet connection.');
-      } else {
-        setError('An unexpected error occurred. Please try again.');
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  if (loans.length === 0) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-blue-50 flex justify-center items-center p-4">
+        <div className="max-w-md w-full bg-white rounded-3xl shadow-2xl p-8 text-center">
+          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
+            <CheckCircleIcon className="w-8 h-8 text-gray-600" />
+          </div>
+          <h3 className="text-2xl font-bold text-gray-900 mb-4">No Active Loans</h3>
+          <p className="text-gray-600 mb-6">
+            Great news! You don't have any active loans to repay at the moment.
+          </p>
+          <button
+            onClick={() => window.history.back()}
+            className="w-full bg-gradient-to-r from-gray-500 to-gray-600 text-white py-3 px-6 rounded-xl font-semibold hover:from-gray-600 hover:to-gray-700 transition-all duration-200"
+          >
+            Go Back
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold text-gray-900 mb-8">Loan Repayment</h1>
-      
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Payment Form Section */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-xl font-semibold text-gray-800 mb-6">Make a Payment</h2>
-          
-          {error && (
-            <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-4">
-              <div className="flex items-center">
-                <ExclamationCircleIcon className="w-5 h-5 text-red-400" />
-                <span className="ml-2 text-red-700">{error}</span>
-              </div>
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-pink-50 py-8 px-4">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="text-center mb-12">
+          <h1 className="text-5xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent mb-4">
+            Loan Repayment
+          </h1>
+          <p className="text-xl text-gray-600">
+            Make payments towards your active loans securely
+          </p>
+        </div>
+
+        {!selectedLoan ? (
+          /* Loan Selection */
+          <div className="space-y-8">
+            <div className="text-center">
+              <h2 className="text-3xl font-bold text-gray-900 mb-4">Select a Loan to Repay</h2>
+              <p className="text-gray-600">Choose from your active loans below</p>
             </div>
-          )}
-          
-          {successMessage && (
-            <div className="mb-4 bg-green-50 border border-green-200 rounded-lg p-4">
-              <div className="flex items-center">
-                <CheckCircleIcon className="w-5 h-5 text-green-400" />
-                <span className="ml-2 text-green-700">{successMessage}</span>
-              </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {loans.map((loan) => (
+                <div
+                  key={loan.id}
+                  className="bg-white rounded-3xl shadow-xl p-8 hover:shadow-2xl transform hover:scale-105 transition-all duration-300 cursor-pointer border-2 border-transparent hover:border-purple-200"
+                  onClick={() => setSelectedLoan(loan)}
+                >
+                  <div className="text-center mb-6">
+                    <div className="w-16 h-16 bg-gradient-to-r from-purple-500 to-pink-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <CreditCardIcon className="w-8 h-8 text-white" />
+                    </div>
+                    <h3 className="text-xl font-bold text-gray-900 mb-2">
+                      Loan #{loan.id.slice(-8)}
+                    </h3>
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+                      <CheckCircleIcon className="w-4 h-4 mr-1" />
+                      Active
+                    </span>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="bg-gray-50 rounded-xl p-4">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-gray-600 font-medium">Outstanding Amount</span>
+                        <span className="text-2xl font-bold text-purple-600">{formatCurrency(getRemainingBalance(loan))}</span>
+                      </div>
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-gray-600">Total Due (with interest)</span>
+                        <span className="font-semibold text-pink-600">{formatCurrency(getTotalAmountDue(loan))}</span>
+                      </div>
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-gray-600">Interest Rate</span>
+                        <span className="font-semibold">{loan.interest_rate}%</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600">Repayment Period</span>
+                        <span className="font-semibold">{loan.repayment_period} months</span>
+                      </div>
+                    </div>
+
+                    <button className="w-full bg-gradient-to-r from-purple-500 to-pink-600 text-white py-3 px-6 rounded-xl font-semibold hover:from-purple-600 hover:to-pink-700 transition-all duration-200 flex items-center justify-center">
+                      Make Payment
+                      <BanknotesIcon className="w-4 h-4 ml-2" />
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
-          )}
-          
-          <div className="space-y-6">
-            {/* Loan Selection */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Select Loan
-              </label>
-              <select
-                name="loan_id"
-                value={paymentForm.loan_id}
-                onChange={handleInputChange}
-                className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm ${formErrors.loan_id ? 'border-red-300' : ''}`}
+          </div>
+        ) : (
+          /* Payment Form */
+          <div className="space-y-8">
+            <div className="flex items-center justify-between">
+              <button
+                onClick={() => setSelectedLoan(null)}
+                className="flex items-center text-purple-600 hover:text-purple-800 font-semibold transition-colors"
               >
-                <option value="">Select a loan</option>
-                {loans.map(loan => (
-                  <option key={loan.id} value={loan.id}>
-                    Loan #{loan.id} - Total Due: {formatCurrency(getTotalAmountDue(loan))}
-                  </option>
-                ))}
-              </select>
-              {formErrors.loan_id && (
-                <p className="mt-1 text-sm text-red-600">{formErrors.loan_id}</p>
-              )}
+                <ArrowLeftIcon className="w-5 h-5 mr-2" />
+                Back to Loans
+              </button>
+              <div className="text-right">
+                <h2 className="text-2xl font-bold text-gray-900">
+                  Loan #{selectedLoan.id.slice(-8)}
+                </h2>
+                <p className="text-gray-600">Outstanding: {formatCurrency(getRemainingBalance(selectedLoan))}</p>
+              </div>
             </div>
 
-            {/* Selected Loan Details */}
-            {selectedLoan && (
-              <div className="bg-gray-50 rounded-lg p-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-gray-500">Remaining Principal</p>
-                    <p className="text-base font-medium text-gray-900">
-                      {formatCurrency(getRemainingBalance(selectedLoan))}
-                    </p>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              {/* Loan Details Card */}
+              <div className="lg:col-span-1 bg-white rounded-3xl shadow-xl p-8">
+                <h3 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+                  <ClockIcon className="w-6 h-6 mr-3 text-purple-600" />
+                  Loan Details
+                </h3>
+                
+                <div className="space-y-6">
+                  <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-2xl p-6">
+                    <div className="text-center mb-4">
+                      <p className="text-gray-600 font-medium mb-1">Outstanding Principal</p>
+                      <p className="text-3xl font-bold text-purple-600">{formatCurrency(getRemainingBalance(selectedLoan))}</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-gray-600 font-medium mb-1">Total Due (with interest)</p>
+                      <p className="text-2xl font-bold text-pink-600">{formatCurrency(getTotalAmountDue(selectedLoan))}</p>
+                    </div>
                   </div>
-                  <div className="col-span-2 pt-2 border-t border-gray-200">
-                    <p className="text-sm font-medium text-gray-700">Total Amount Due</p>
-                    <p className="text-lg font-bold text-gray-900">
-                      {formatCurrency(getTotalAmountDue(selectedLoan))}
-                    </p>
+
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center py-3 border-b border-gray-100">
+                      <span className="text-gray-600 font-medium">Loan ID</span>
+                      <span className="font-mono text-gray-900">#{selectedLoan.id.slice(-8)}</span>
+                    </div>
+                    <div className="flex justify-between items-center py-3 border-b border-gray-100">
+                      <span className="text-gray-600 font-medium">Interest Rate</span>
+                      <span className="font-semibold text-gray-900">{selectedLoan.interest_rate}%</span>
+                    </div>
+                    <div className="flex justify-between items-center py-3 border-b border-gray-100">
+                      <span className="text-gray-600 font-medium">Repayment Period</span>
+                      <span className="font-semibold text-gray-900">{selectedLoan.repayment_period} months</span>
+                    </div>
+                    <div className="flex justify-between items-center py-3">
+                      <span className="text-gray-600 font-medium">Status</span>
+                      <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+                        <CheckCircleIcon className="w-4 h-4 mr-1" />
+                        Active
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                    <div className="flex items-start">
+                      <InformationCircleIcon className="w-5 h-5 text-blue-600 mt-0.5 mr-3" />
+                      <div>
+                        <p className="text-sm font-medium text-blue-900">Payment Information</p>
+                        <p className="text-xs text-blue-700 mt-1">
+                          You can make partial or full payments. Any amount you pay will reduce your outstanding balance.
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
-            )}
 
-            {/* Payment Amount */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Payment Amount
-              </label>
-              <div className="mt-1 relative rounded-md shadow-sm">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <span className="text-gray-500 sm:text-sm">$</span>
-                </div>
-                <input
-                  type="number"
-                  name="amount"
-                  step="0.01"
-                  value={paymentForm.amount}
-                  onChange={handleInputChange}
-                  className={`block w-full pl-7 pr-12 rounded-md border-gray-300 focus:ring-blue-500 focus:border-blue-500 sm:text-sm
-                    ${formErrors.amount ? 'border-red-300' : ''}`}
-                  placeholder="0.00"
+              {/* Payment Form */}
+              <div className="lg:col-span-1">
+                <ModernPaymentForm
+                  type="loan_repayment"
+                  amount={paymentAmount}
+                  onAmountChange={setPaymentAmount}
+                  onSubmit={handlePayment}
+                  loading={paymentLoading}
+                  loanInfo={selectedLoan}
                 />
               </div>
-              {formErrors.amount && (
-                <p className="mt-1 text-sm text-red-600">{formErrors.amount}</p>
-              )}
-            </div>
 
-            {/* Submit Button */}
-            <div>
-              {selectedLoan && paymentForm.amount > 0 && !formErrors.amount && (
-                <StripePayment
-                  amount={parseFloat(paymentForm.amount)}
-                  handlePayment={handleStripeRepayment}
-                />
-              )}
+              {/* Transaction History */}
+              <div className="lg:col-span-1 bg-white rounded-3xl shadow-xl overflow-hidden">
+                <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-blue-50">
+                  <h3 className="text-xl font-bold text-gray-900 flex items-center">
+                    <ClockIcon className="w-5 h-5 mr-2 text-blue-600" />
+                    Repayment History
+                  </h3>
+                </div>
+                
+                <div className="max-h-96 overflow-y-auto">
+                  <RepaymentTransactions loanId={selectedLoan.id} />
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-
-        {/* Transaction History Section */}
-        <div className="bg-white rounded-lg shadow">
-          <div className="p-6 border-b border-gray-200">
-            <h2 className="text-xl font-semibold text-gray-800">Repayment History</h2>
-          </div>
-          
-          {selectedLoan ? (
-            <RepaymentTransactions loanId={selectedLoan.id} />
-          ) : (
-            <div className="p-6 text-center text-gray-500">
-              <InformationCircleIcon className="mx-auto h-12 w-12 text-gray-400" />
-              <p className="mt-2">Select a loan to view its repayment history</p>
-            </div>
-          )}
-        </div>
+        )}
       </div>
     </div>
   );

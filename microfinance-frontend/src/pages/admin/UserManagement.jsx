@@ -9,7 +9,8 @@ import {
   XMarkIcon,
   DocumentTextIcon,
   CheckCircleIcon,
-  XCircleIcon
+  XCircleIcon,
+  ArrowDownTrayIcon
 } from '@heroicons/react/24/outline';
 import api from '../../services/api';
 
@@ -30,6 +31,8 @@ const UserDetailModal = ({ user, onClose, onDelete, onActivateAccount, onDeactiv
         });
         console.log('User profile response:', response.data);
         console.log('Fayda document URL:', response.data.fayda_document_url);
+        console.log('ID card front URL:', response.data.id_card_front_url);
+        console.log('ID card back URL:', response.data.id_card_back_url);
         setUserProfile(response.data);
       } catch (err) {
         console.error('Error fetching user profile:', err);
@@ -51,6 +54,33 @@ const UserDetailModal = ({ user, onClose, onDelete, onActivateAccount, onDeactiv
 
   const closeImageView = () => {
     setImageView(null);
+  };
+
+  const downloadImage = async (imageUrl, filename) => {
+    try {
+      const response = await fetch(imageUrl, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('session_id')}`,
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to download image');
+      }
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error downloading image:', error);
+      alert('Failed to download image. Please try again.');
+    }
   };
 
   if (!user) return null;
@@ -111,35 +141,178 @@ const UserDetailModal = ({ user, onClose, onDelete, onActivateAccount, onDeactiv
 
            
 
-            {userProfile?.fayda_document_url && (
-              <div className="flex flex-col space-y-2">
-                <p className="text-sm font-medium text-gray-500">ID Document</p>
-                <div 
-                  className="relative h-48 bg-gray-100 rounded-lg overflow-hidden cursor-pointer hover:opacity-90 transition-opacity"
-                  onClick={() => {
-                    const fileUrl = `${api.defaults.baseURL}/api/v1/users/${user.id}/fayda-document/download`;
-                    console.log('Opening document URL:', fileUrl);
-                    window.open(fileUrl, '_blank');
-                  }}
-                >
-                  {userProfile.fayda_document_url.toLowerCase().endsWith('.pdf') ? (
-                    <div className="flex flex-col items-center justify-center h-full">
-                      <DocumentTextIcon className="h-16 w-16 text-gray-400" />
-                      <p className="text-sm text-gray-500 mt-2">Click to view PDF</p>
+            {/* ID Card Images Section */}
+            <div className="space-y-4">
+              <h4 className="text-lg font-semibold text-gray-900 border-b pb-2">ID Verification (Fayda)</h4>
+              
+              {/* Front and Back ID Cards */}
+              {(userProfile?.id_card_front_url || userProfile?.id_card_back_url) ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Front ID Card */}
+                  {userProfile?.id_card_front_url && (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-medium text-gray-700 flex items-center">
+                          <DocumentTextIcon className="h-4 w-4 mr-2 text-blue-600" />
+                          ID Card - Front
+                        </p>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            downloadImage(
+                              `${api.defaults.baseURL}/api/v1/users/${user.id}/id-card-front/download`,
+                              `${user.username}_id_card_front.jpg`
+                            );
+                          }}
+                          className="flex items-center px-2 py-1 text-xs bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                          title="Download Front ID"
+                        >
+                          <ArrowDownTrayIcon className="h-3 w-3 mr-1" />
+                          Download
+                        </button>
+                      </div>
+                      <div 
+                        className="relative h-40 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl overflow-hidden cursor-pointer hover:shadow-lg transition-all duration-200 border-2 border-blue-200"
+                        onClick={() => openImageView(`${api.defaults.baseURL}/api/v1/users/${user.id}/id-card-front/download`, 'ID Card - Front')}
+                      >
+                        <img 
+                          src={`${api.defaults.baseURL}/api/v1/users/${user.id}/id-card-front/download`}
+                          alt="ID Card Front" 
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            console.error('Error loading front ID image:', e);
+                            e.target.parentElement.innerHTML = `
+                              <div class="flex flex-col items-center justify-center h-full text-gray-500">
+                                <DocumentTextIcon class="h-12 w-12 mb-2" />
+                                <p class="text-sm">Image not available</p>
+                              </div>
+                            `;
+                          }}
+                        />
+                        <div className="absolute inset-0 bg-black bg-opacity-0 hover:bg-opacity-20 transition-all duration-200 flex items-center justify-center">
+                          <EyeIcon className="h-8 w-8 text-white opacity-0 hover:opacity-100 transition-opacity" />
+                        </div>
+                        <div className="absolute top-2 right-2 bg-blue-600 text-white px-2 py-1 rounded-md text-xs font-medium">
+                          FRONT
+                        </div>
+                      </div>
                     </div>
-                  ) : (
-                    <img 
-                      src={`${api.defaults.baseURL}/api/v1/users/${user.id}/fayda-document/download`}
-                      alt="ID Document" 
-                      className="w-full h-full object-contain"
-                      onError={(e) => {
-                        console.error('Error loading image:', e);
-                        e.target.src = '/placeholder-id.png';
-                      }}
-                    />
                   )}
-                  <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-0 hover:bg-opacity-30 transition-all">
-                    <EyeIcon className="h-8 w-8 text-white opacity-0 hover:opacity-100" />
+
+                  {/* Back ID Card */}
+                  {userProfile?.id_card_back_url && (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-medium text-gray-700 flex items-center">
+                          <DocumentTextIcon className="h-4 w-4 mr-2 text-purple-600" />
+                          ID Card - Back
+                        </p>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            downloadImage(
+                              `${api.defaults.baseURL}/api/v1/users/${user.id}/id-card-back/download`,
+                              `${user.username}_id_card_back.jpg`
+                            );
+                          }}
+                          className="flex items-center px-2 py-1 text-xs bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors"
+                          title="Download Back ID"
+                        >
+                          <ArrowDownTrayIcon className="h-3 w-3 mr-1" />
+                          Download
+                        </button>
+                      </div>
+                      <div 
+                        className="relative h-40 bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl overflow-hidden cursor-pointer hover:shadow-lg transition-all duration-200 border-2 border-purple-200"
+                        onClick={() => openImageView(`${api.defaults.baseURL}/api/v1/users/${user.id}/id-card-back/download`, 'ID Card - Back')}
+                      >
+                        <img 
+                          src={`${api.defaults.baseURL}/api/v1/users/${user.id}/id-card-back/download`}
+                          alt="ID Card Back" 
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            console.error('Error loading back ID image:', e);
+                            e.target.parentElement.innerHTML = `
+                              <div class="flex flex-col items-center justify-center h-full text-gray-500">
+                                <DocumentTextIcon class="h-12 w-12 mb-2" />
+                                <p class="text-sm">Image not available</p>
+                              </div>
+                            `;
+                          }}
+                        />
+                        <div className="absolute inset-0 bg-black bg-opacity-0 hover:bg-opacity-20 transition-all duration-200 flex items-center justify-center">
+                          <EyeIcon className="h-8 w-8 text-white opacity-0 hover:opacity-100 transition-opacity" />
+                        </div>
+                        <div className="absolute top-2 right-2 bg-purple-600 text-white px-2 py-1 rounded-md text-xs font-medium">
+                          BACK
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : userProfile?.fayda_document_url ? (
+                /* Legacy Fayda Document Support */
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-gray-700 flex items-center">
+                    <DocumentTextIcon className="h-4 w-4 mr-2 text-green-600" />
+                    ID Document (Legacy)
+                  </p>
+                  <div 
+                    className="relative h-48 bg-gradient-to-br from-green-50 to-green-100 rounded-xl overflow-hidden cursor-pointer hover:shadow-lg transition-all duration-200 border-2 border-green-200"
+                    onClick={() => {
+                      const fileUrl = `${api.defaults.baseURL}/api/v1/users/${user.id}/fayda-document/download`;
+                      console.log('Opening document URL:', fileUrl);
+                      window.open(fileUrl, '_blank');
+                    }}
+                  >
+                    {userProfile.fayda_document_url.toLowerCase().endsWith('.pdf') ? (
+                      <div className="flex flex-col items-center justify-center h-full">
+                        <DocumentTextIcon className="h-16 w-16 text-green-600" />
+                        <p className="text-sm text-green-700 mt-2 font-medium">Click to view PDF</p>
+                      </div>
+                    ) : (
+                      <img 
+                        src={`${api.defaults.baseURL}/api/v1/users/${user.id}/fayda-document/download`}
+                        alt="ID Document" 
+                        className="w-full h-full object-contain"
+                        onError={(e) => {
+                          console.error('Error loading image:', e);
+                          e.target.src = '/placeholder-id.png';
+                        }}
+                      />
+                    )}
+                    <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-0 hover:bg-opacity-20 transition-all">
+                      <EyeIcon className="h-8 w-8 text-white opacity-0 hover:opacity-100" />
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-8 bg-gray-50 rounded-xl border-2 border-dashed border-gray-300">
+                  <DocumentTextIcon className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+                  <p className="text-gray-500 font-medium">No ID verification documents uploaded</p>
+                  <p className="text-sm text-gray-400 mt-1">User needs to upload their Fayda (ID card)</p>
+                </div>
+              )}
+            </div>
+
+            {/* Image View Modal */}
+            {imageView && (
+              <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50" onClick={closeImageView}>
+                <div className="relative max-w-4xl max-h-full p-4">
+                  <button
+                    onClick={closeImageView}
+                    className="absolute top-2 right-2 text-white hover:text-gray-300 z-10"
+                  >
+                    <XMarkIcon className="h-8 w-8" />
+                  </button>
+                  <img
+                    src={imageView.url}
+                    alt={imageView.title}
+                    className="max-w-full max-h-full object-contain rounded-lg"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                  <div className="absolute bottom-4 left-4 bg-black bg-opacity-50 text-white px-4 py-2 rounded-lg">
+                    <p className="font-medium">{imageView.title}</p>
                   </div>
                 </div>
               </div>

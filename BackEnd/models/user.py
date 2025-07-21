@@ -34,7 +34,9 @@ class User(BaseModel, Base):
     location = Column(String(100))
     profile_picture_path = Column(String(255))  # Store path instead of actual image
     fayda_id = Column(String(50))
-    fayda_document_path = Column(String(255))  # Store path to Fayda document
+    fayda_document_path = Column(String(255))  # Store path to Fayda document (legacy)
+    id_card_front_path = Column(String(255))  # Store path to ID card front
+    id_card_back_path = Column(String(255))   # Store path to ID card back
     hobbies = Column(String(255))
     preferences = Column(String(255))
     is_verified = Column(Boolean, default=False)
@@ -141,3 +143,47 @@ class User(BaseModel, Base):
         if self.fayda_document_path:
             return f"/static/{self.fayda_document_path}"
         return None
+
+    def update_id_card_front(self, file):
+        """Update user's ID card front image"""
+        if file:
+            # Delete old ID card front if exists
+            if self.id_card_front_path:
+                old_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 
+                                      'static', self.id_card_front_path)
+                if os.path.exists(old_path):
+                    os.remove(old_path)
+
+            # Save new ID card front
+            self.id_card_front_path = self._save_file(file, 'id_cards/front')
+            return True
+        return False
+
+    def update_id_card_back(self, file):
+        """Update user's ID card back image"""
+        if file:
+            # Delete old ID card back if exists
+            if self.id_card_back_path:
+                old_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 
+                                      'static', self.id_card_back_path)
+                if os.path.exists(old_path):
+                    os.remove(old_path)
+
+            # Save new ID card back
+            self.id_card_back_path = self._save_file(file, 'id_cards/back')
+            return True
+        return False
+
+    def get_id_card_front_url(self):
+        """Get the full URL for the ID card front"""
+        if self.id_card_front_path:
+            return f"/static/{self.id_card_front_path}"
+        return None
+
+    def get_id_card_back_url(self):
+        """Get the full URL for the ID card back"""
+        if self.id_card_back_path:
+            return f"/static/{self.id_card_back_path}"
+        return None
+
+

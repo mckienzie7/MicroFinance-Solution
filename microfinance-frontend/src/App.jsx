@@ -26,6 +26,8 @@ import Register from './components/auth/Register';
 // User Pages
 import UserDashboard from './pages/user/Dashboard';
 import SavingsAccount from './pages/user/SavingsAccount';
+import Deposit from './pages/user/Deposit';
+import Withdrawal from './pages/user/Withdrawal';
 // ApplyLoan component removed
 import MyLoans from './pages/user/MyLoans';
 import LoanRepayment from './pages/user/LoanRepayment';
@@ -85,8 +87,8 @@ function App() {
               <Route element={<UserLayout />}>
                 <Route path="dashboard" element={<UserDashboard />} />
                 <Route path="savings" element={<SavingsAccount />} />
-                <Route path="deposit" element={<div className="p-6"><h1 className="text-2xl font-bold mb-4">Deposit</h1><p>Deposit functionality coming soon...</p></div>} />
-                <Route path="withdraw" element={<div className="p-6"><h1 className="text-2xl font-bold mb-4">Withdraw</h1><p>Withdraw functionality coming soon...</p></div>} />
+                <Route path="deposit" element={<Deposit />} />
+                <Route path="withdraw" element={<Withdrawal />} />
                 {/* ApplyLoan route removed */}
                 <Route path="loans" element={<MyLoans />} />
                 <Route path="pay-loan" element={<LoanRepayment />} />

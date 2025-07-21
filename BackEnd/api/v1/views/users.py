@@ -215,13 +215,29 @@ def register():
         if len(password) < 6:
             return jsonify({"message": "Password must be at least 6 characters"}), 400
 
-        # Handle file upload if present
-        fayda_document = request.files.get('idPicture')
+        # Handle file uploads if present
+        id_card_front = request.files.get('idCardFront')
+        id_card_back = request.files.get('idCardBack')
+        fayda_document = request.files.get('idPicture')  # Legacy support
+        
+        # Validate file types
+        allowed_extensions = {'jpg', 'jpeg', 'png'}
+        
+        if id_card_front and id_card_front.filename:
+            if '.' not in id_card_front.filename or \
+               id_card_front.filename.rsplit('.', 1)[1].lower() not in allowed_extensions:
+                return jsonify({"message": "Invalid file type for ID card front. Allowed types: JPG, JPEG, PNG"}), 400
+        
+        if id_card_back and id_card_back.filename:
+            if '.' not in id_card_back.filename or \
+               id_card_back.filename.rsplit('.', 1)[1].lower() not in allowed_extensions:
+                return jsonify({"message": "Invalid file type for ID card back. Allowed types: JPG, JPEG, PNG"}), 400
+        
         if fayda_document and fayda_document.filename:
-            # Validate file type
-            allowed_extensions = {'pdf', 'jpg', 'jpeg', 'png'}
+            # Legacy support - allow PDF for old uploads
+            legacy_extensions = {'pdf', 'jpg', 'jpeg', 'png'}
             if '.' not in fayda_document.filename or \
-               fayda_document.filename.rsplit('.', 1)[1].lower() not in allowed_extensions:
+               fayda_document.filename.rsplit('.', 1)[1].lower() not in legacy_extensions:
                 return jsonify({"message": "Invalid file type. Allowed types: PDF, JPG, JPEG, PNG"}), 400
         
         auth = AuthController()
@@ -233,7 +249,9 @@ def register():
                 admin=admin,
                 fullname=fullname,
                 phone_number=phone_number,
-                fayda_document=fayda_document
+                fayda_document=fayda_document,
+                id_card_front=id_card_front,
+                id_card_back=id_card_back
             )
             
             return jsonify({
@@ -470,7 +488,9 @@ def get_user_profile(user_id):
     profile_data = user.to_dict()
     profile_data.update({
         'profile_picture_url': user.get_profile_picture_url(),
-        'fayda_document_url': user.get_fayda_document_url()
+        'fayda_document_url': user.get_fayda_document_url(),
+        'id_card_front_url': user.get_id_card_front_url(),
+        'id_card_back_url': user.get_id_card_back_url()
     })
     
     return jsonify(profile_data)
@@ -541,6 +561,82 @@ def download_fayda_document(user_id):
             '.jpeg': 'image/jpeg',
             '.png': 'image/png'
         }.get(file_extension, 'application/octet-stream')
+
+        return send_file(
+            file_path,
+            download_name=original_filename,
+            mimetype=mimetype
+        )
+    except Exception as e:
+        return make_response(jsonify({'error': str(e)}), 500)
+
+@app_views.route('/users/<user_id>/id-card-front/download', methods=['GET'], strict_slashes=False)
+def download_id_card_front(user_id):
+    """
+    Download user's ID card front image
+    """
+    user = storage.get(User, user_id)
+    if not user:
+        abort(404)
+
+    if not user.id_card_front_path:
+        return make_response(jsonify({'error': 'No ID card front image found'}), 404)
+
+    try:
+        file_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))),
+                                 'static', user.id_card_front_path)
+
+        if not os.path.exists(file_path):
+            return make_response(jsonify({'error': 'ID card front image file not found'}), 404)
+
+        # Get the original filename from the path
+        original_filename = os.path.basename(user.id_card_front_path)
+
+        # Determine the correct mimetype based on file extension
+        file_extension = os.path.splitext(original_filename)[1].lower()
+        mimetype = {
+            '.jpg': 'image/jpeg',
+            '.jpeg': 'image/jpeg',
+            '.png': 'image/png'
+        }.get(file_extension, 'image/jpeg')
+
+        return send_file(
+            file_path,
+            download_name=original_filename,
+            mimetype=mimetype
+        )
+    except Exception as e:
+        return make_response(jsonify({'error': str(e)}), 500)
+
+@app_views.route('/users/<user_id>/id-card-back/download', methods=['GET'], strict_slashes=False)
+def download_id_card_back(user_id):
+    """
+    Download user's ID card back image
+    """
+    user = storage.get(User, user_id)
+    if not user:
+        abort(404)
+
+    if not user.id_card_back_path:
+        return make_response(jsonify({'error': 'No ID card back image found'}), 404)
+
+    try:
+        file_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))),
+                                 'static', user.id_card_back_path)
+
+        if not os.path.exists(file_path):
+            return make_response(jsonify({'error': 'ID card back image file not found'}), 404)
+
+        # Get the original filename from the path
+        original_filename = os.path.basename(user.id_card_back_path)
+
+        # Determine the correct mimetype based on file extension
+        file_extension = os.path.splitext(original_filename)[1].lower()
+        mimetype = {
+            '.jpg': 'image/jpeg',
+            '.jpeg': 'image/jpeg',
+            '.png': 'image/png'
+        }.get(file_extension, 'image/jpeg')
 
         return send_file(
             file_path,
