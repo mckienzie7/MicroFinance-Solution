@@ -19,10 +19,11 @@ app.register_blueprint(company_balance_bp, url_prefix='/api/v1/company')
 # Configure CORS to allow requests from any origin
 # This is safe because we're using a proxy in the frontend
 CORS(app, resources={
-    r"/api/*": {
-        "origins": ["http://localhost:*", "http://127.0.0.1:*", "http://10.0.2.2:*"],
-        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-        "allow_headers": ["Content-Type", "Authorization"]
+    r"/*": {
+        "origins": ["http://localhost:*", "http://127.0.0.1:*", "http://10.0.2.2:*", "http://localhost:5173", "http://localhost:3000"],
+        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+        "allow_headers": ["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin"],
+        "expose_headers": ["Content-Type", "Authorization"]
     }
 }, supports_credentials=True)
 

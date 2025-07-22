@@ -379,4 +379,4 @@ class CreditScoreController:
                 'change': variation if i < 11 else 0
             })
         
-        return list(reversed(history))
+        return list()

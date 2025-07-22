@@ -283,7 +283,7 @@ class AICredoScoreModel:
                 'status': 'excellent',
                 'impact': 'high',
                 'description': f"You have repaid {features['repayment_ratio']*100:.0f}% of your loans on time.",
-                'score_impact': 25
+                'score_impact': None
             })
         elif features['repayment_ratio'] >= 0.7:
             factors.append({
@@ -291,7 +291,7 @@ class AICredoScoreModel:
                 'status': 'good',
                 'impact': 'high',
                 'description': f"You have repaid {features['repayment_ratio']*100:.0f}% of your loans on time.",
-                'score_impact': 15
+                'score_impact': None
             })
         else:
             factors.append({
@@ -299,7 +299,7 @@ class AICredoScoreModel:
                 'status': 'needs improvement',
                 'impact': 'high',
                 'description': f"You have repaid {features['repayment_ratio']*100:.0f}% of your loans on time.",
-                'score_impact': -10
+                'score_impact': None
             })
         
         # Account Balance
@@ -309,7 +309,7 @@ class AICredoScoreModel:
                 'status': 'excellent',
                 'impact': 'medium',
                 'description': f"Your total balance is {features['total_balance']:.2f} ETB.",
-                'score_impact': 20
+                'score_impact': None
             })
         elif features['total_balance'] >= 5000:
             factors.append({
@@ -317,7 +317,7 @@ class AICredoScoreModel:
                 'status': 'good',
                 'impact': 'medium',
                 'description': f"Your total balance is {features['total_balance']:.2f} ETB.",
-                'score_impact': 10
+                'score_impact': None
             })
         else:
             factors.append({
@@ -325,7 +325,7 @@ class AICredoScoreModel:
                 'status': 'fair',
                 'impact': 'medium',
                 'description': f"Your total balance is {features['total_balance']:.2f} ETB.",
-                'score_impact': 0
+                'score_impact': None
             })
         
         # Transaction Activity
@@ -335,7 +335,7 @@ class AICredoScoreModel:
                 'status': 'excellent',
                 'impact': 'medium',
                 'description': f"You have made {features['transaction_count']} transactions.",
-                'score_impact': 15
+                'score_impact': None
             })
         elif features['transaction_count'] >= 20:
             factors.append({
@@ -343,7 +343,7 @@ class AICredoScoreModel:
                 'status': 'good',
                 'impact': 'medium',
                 'description': f"You have made {features['transaction_count']} transactions.",
-                'score_impact': 10
+                'score_impact': None
             })
         else:
             factors.append({
@@ -351,7 +351,7 @@ class AICredoScoreModel:
                 'status': 'needs improvement',
                 'impact': 'low',
                 'description': f"You have made {features['transaction_count']} transactions.",
-                'score_impact': 0
+                'score_impact': None
             })
         
         # Account Age
@@ -361,7 +361,7 @@ class AICredoScoreModel:
                 'status': 'excellent',
                 'impact': 'medium',
                 'description': f"Your account is {features['account_age_days']} days old.",
-                'score_impact': 15
+                'score_impact': None
             })
         elif features['account_age_days'] >= 180:
             factors.append({
@@ -369,7 +369,7 @@ class AICredoScoreModel:
                 'status': 'good',
                 'impact': 'medium',
                 'description': f"Your account is {features['account_age_days']} days old.",
-                'score_impact': 10
+                'score_impact': None
             })
         else:
             factors.append({
@@ -377,7 +377,7 @@ class AICredoScoreModel:
                 'status': 'fair',
                 'impact': 'low',
                 'description': f"Your account is {features['account_age_days']} days old.",
-                'score_impact': 5
+                'score_impact': None
             })
         
         return factors
