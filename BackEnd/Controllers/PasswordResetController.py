@@ -24,8 +24,8 @@ def send_password_reset_email(email):
     sender_email = os.getenv('EMAIL_USER')
     sender_password = os.getenv('EMAIL_PASSWORD')
     receiver_email = email
-    url = os.getenv('VITE_API_URL')
-    reset_link = f"{url}/api/v1/reset-password/{token}"
+    frontend_url = os.getenv('FRONTEND_URL', 'http://localhost:5173')
+    reset_link = f"{frontend_url}/reset-password/{token}"
 
     message = MIMEText(f"Click the link to reset your password: {reset_link}")
     message['Subject'] = "Password Reset Request"
@@ -33,7 +33,8 @@ def send_password_reset_email(email):
     message['To'] = receiver_email
     db = storage
     try:
-        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
+        with smtplib.SMTP('smtp.gmail.com', 587) as server:
+            server.starttls()
             server.login(sender_email, sender_password)
             server.sendmail(sender_email, receiver_email, message.as_string())
             user = userc.find_user_by(email=email)

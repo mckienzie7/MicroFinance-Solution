@@ -146,8 +146,6 @@ const authService = {
         email: credentials.email,
         username: credentials.email.split('@')[0],
         admin: isAdmin,
-        username: credentials.email.split('@')[0],
-        admin: isAdmin,
         role: isAdmin ? 'admin' : 'user',
         createdAt: new Date().toISOString()
       };
@@ -162,7 +160,6 @@ const authService = {
     
     // Normal login flow for production
     try {
-      console.log('Submitting login form with:', credentials);
       console.log('Submitting login form with:', credentials);
       const response = await api.post('/api/v1/users/login', credentials);
       console.log('Login response:', response);
@@ -253,13 +250,11 @@ const authService = {
       await api.delete('/api/v1/users/logout');
       secureStorage.clearUser();
       secureStorage.clearSessionId();
-      secureStorage.clearSessionId();
       return true;
     } catch (error) {
       console.error('Logout error:', error);
       // Even if the API call fails, clear local data
       secureStorage.clearUser();
-      secureStorage.clearSessionId();
       secureStorage.clearSessionId();
       throw error.response?.data || { message: 'Logout failed on server, but you have been logged out locally.' };
     }

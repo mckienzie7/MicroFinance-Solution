@@ -54,6 +54,17 @@ class StripeController:
         if not all(field in data for field in required_fields):
             return jsonify({"error": "Missing data"}), 400
 
+        # Check account status BEFORE charging
+        account = self.account_controller.get_accounts_by_id(data['user_id'])
+        if not account:
+            return jsonify({"error": "Account not found"}), 404
+        
+        if account.status != 'active':
+            return jsonify({
+                'error': 'Your account is currently under review. You can make transactions once your account is activated. Please contact support for more information.',
+                'account_status': account.status
+            }), 403
+
         # Use the exact amount submitted by user (treat as USD cents for Stripe)
         amount_for_stripe = int(data['amount'])  # Use amount directly as cents
         description = f"Deposit for user {data['user_id']}"
@@ -72,19 +83,18 @@ class StripeController:
             storage.new(new_payment)
             storage.save()
 
-            account = self.account_controller.get_accounts_by_id(data['user_id'])
-            if account:
-                self.transaction_controller.deposit(
-                    account_id=account.id,
-                    amount=data['amount'],
-                    description=description
-                )
-                # Create success notification
-                self.notification_controller.notify_deposit(
-                    user_id=data['user_id'],
-                    amount=data['amount'],
-                    account_number=account.account_number
-                )
+            # Process the transaction (account already verified above)
+            self.transaction_controller.deposit(
+                account_id=account.id,
+                amount=data['amount'],
+                description=description
+            )
+            # Create success notification
+            self.notification_controller.notify_deposit(
+                user_id=data['user_id'],
+                amount=data['amount'],
+                account_number=account.account_number
+            )
             
             return jsonify({'status': 'success', 'payment_intent_id': intent.id})
         else:
@@ -112,6 +122,13 @@ class StripeController:
         account = self.account_controller.get_accounts_by_id(data['user_id'])
         if not account:
             return jsonify({"error": "Account not found"}), 404
+
+        # Check if account is active
+        if account.status != 'active':
+            return jsonify({
+                'error': 'Your account is currently under review. You can make transactions once your account is activated. Please contact support for more information.',
+                'account_status': account.status
+            }), 403
 
         if account.balance < data['amount']:
             return jsonify({"error": "Insufficient funds"}), 400
@@ -182,6 +199,13 @@ class StripeController:
         account = self.account_controller.get_accounts_by_id(data['user_id'])
         if not account or loan.account_id != account.id:
             return jsonify({"error": "Loan not found or access denied"}), 404
+
+        # Check if account is active
+        if account.status != 'active':
+            return jsonify({
+                'error': 'Your account is currently under review. You can make transactions once your account is activated. Please contact support for more information.',
+                'account_status': account.status
+            }), 403
 
         # Use the exact amount submitted by user (treat as USD cents for Stripe)
         amount_for_stripe = int(data['amount'])  # Use amount directly as cents
