@@ -13,5 +13,6 @@ from BackEnd.api.v1.views.repayments import *
 from BackEnd.api.v1.views.stripe import *
 from BackEnd.api.v1.views.credit_score import *
 from BackEnd.api.v1.views.comprehensive_credit_score import *
-from BackEnd.api.v1.views.notifications import * 
+from BackEnd.api.v1.views.notifications import *
+from BackEnd.api.v1.views.settings import * 
 
