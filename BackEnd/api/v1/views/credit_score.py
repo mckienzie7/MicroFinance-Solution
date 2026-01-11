@@ -131,35 +131,11 @@ def get_user_credit_score():
     try:
         db_session = storage.session()
         
-        # Get credit score using AI model
-        credit_score = credit_controller.ai_model.predict_credit_score(user.id, db_session)
-        
-        # Get factors affecting the score
-        factors = credit_controller.ai_model.get_score_factors(user.id, db_session)
-        
-        # Get improvement recommendations
-        recommendations = credit_controller.ai_model.get_improvement_recommendations(user.id, db_session)
-        
-        # Get user features for additional insights
-        user_features = credit_controller.ai_model.extract_user_features(user.id, db_session)
-        
-        # Calculate score range and rating
-        score_rating = credit_controller._get_score_rating(credit_score)
-        score_range = credit_controller._get_score_range(credit_score)
-        
-        response_data = {
-            'credit_score': credit_score,
-            'score_rating': score_rating,
-            'score_range': score_range,
-            'factors': factors,
-            'recommendations': recommendations,
-            'insights': credit_controller._generate_insights(user_features, credit_score),
-            'last_updated': 'now',
-            'debug_features': user_features  # Add debug info to see what data is being used
-        }
+        # Get comprehensive credit score
+        score_data = credit_controller.credit_model.calculate_comprehensive_credit_score(user.id, db_session)
         
         db_session.close()
-        return jsonify(response_data), 200
+        return jsonify(score_data), 200
         
     except Exception as e:
         print(f"Error getting user credit score: {str(e)}")
@@ -183,8 +159,9 @@ def get_credit_score_history():
     try:
         db_session = storage.session()
         
-        # For now, we'll generate a mock history based on current score
-        current_score = credit_controller.ai_model.predict_credit_score(user.id, db_session)
+        # Get current score using comprehensive model
+        score_data = credit_controller.credit_model.calculate_comprehensive_credit_score(user.id, db_session)
+        current_score = score_data['credit_score']
         
         # Generate historical data (mock for demonstration)
         history = credit_controller._generate_score_history(current_score)

@@ -30,13 +30,17 @@ stripe
 typing_extensions==4.12.2
 Werkzeug==3.1.3
 
-# Machine Learning dependencies for AI Credit Scoring
+# Machine Learning dependencies for AI Credit Scoring (COMMENTED OUT - Using function-based scoring)
+# numpy>=1.24.3
+# pandas>=2.0.3
+# scikit-learn>=1.3.0
+# joblib>=1.3.1
+# tensorflow>=2.15.0
+# xgboost>=2.0.3
+
+# Note: numpy and pandas are still needed for the comprehensive function-based credit score model
 numpy>=1.24.3
 pandas>=2.0.3
-scikit-learn>=1.3.0
-joblib>=1.3.1
-tensorflow>=2.15.0
-xgboost>=2.0.3
 
 # Testing dependencies
 pytest>=7.4,<8.1

@@ -1,8 +1,8 @@
 #!/usr/bin/python3
-"""AI Credit Score Controller"""
+"""Credit Score Controller"""
 
 from flask import jsonify, request
-from BackEnd.models.CreditScoreModel import AICredoScoreModel
+from BackEnd.models.ComprehensiveCreditScoreModel import ComprehensiveCreditScoreModel
 from BackEnd.models import storage
 from BackEnd.models.user import User
 import traceback
@@ -10,7 +10,7 @@ import traceback
 class CreditScoreController:
     def __init__(self):
         """Initialize the Credit Score Controller"""
-        self.ai_model = AICredoScoreModel()
+        self.credit_model = ComprehensiveCreditScoreModel()
 
     def _get_authenticated_user(self):
         """Get authenticated user from Authorization header"""
@@ -44,34 +44,11 @@ class CreditScoreController:
                 
             db_session = storage.session()
             
-            # Get credit score using AI model
-            credit_score = self.ai_model.predict_credit_score(user.id, db_session)
-            
-            # Get factors affecting the score
-            factors = self.ai_model.get_score_factors(user.id, db_session)
-            
-            # Get improvement recommendations
-            recommendations = self.ai_model.get_improvement_recommendations(user.id, db_session)
-            
-            # Get user features for additional insights
-            user_features = self.ai_model.extract_user_features(user.id, db_session)
-            
-            # Calculate score range and rating
-            score_rating = self._get_score_rating(credit_score)
-            score_range = self._get_score_range(credit_score)
-            
-            response_data = {
-                'credit_score': credit_score,
-                'score_rating': score_rating,
-                'score_range': score_range,
-                'factors': factors,
-                'recommendations': recommendations,
-                'insights': self._generate_insights(user_features, credit_score),
-                'last_updated': 'now'
-            }
+            # Get comprehensive credit score
+            score_data = self.credit_model.calculate_comprehensive_credit_score(user.id, db_session)
             
             db_session.close()
-            return jsonify(response_data), 200
+            return jsonify(score_data), 200
             
         except Exception as e:
             print(f"Error getting user credit score: {str(e)}")
@@ -87,8 +64,9 @@ class CreditScoreController:
                 
             db_session = storage.session()
             
-            # For now, we'll generate a mock history based on current score
-            current_score = self.ai_model.predict_credit_score(user.id, db_session)
+            # Get current score
+            score_data = self.credit_model.calculate_comprehensive_credit_score(user.id, db_session)
+            current_score = score_data['credit_score']
             
             # Generate historical data (mock for demonstration)
             history = self._generate_score_history(current_score)
@@ -120,16 +98,15 @@ class CreditScoreController:
             
             for user_obj in users:
                 try:
-                    credit_score = self.ai_model.predict_credit_score(user_obj.id, db_session)
-                    score_rating = self._get_score_rating(credit_score)
+                    score_data = self.credit_model.calculate_comprehensive_credit_score(user_obj.id, db_session)
                     
                     users_scores.append({
                         'user_id': user_obj.id,
                         'username': user_obj.username,
                         'fullname': user_obj.fullname,
                         'email': user_obj.email,
-                        'credit_score': credit_score,
-                        'score_rating': score_rating,
+                        'credit_score': score_data['credit_score'],
+                        'score_rating': score_data['score_rating'],
                         'is_admin': user_obj.admin
                     })
                 except Exception as user_error:
@@ -174,41 +151,19 @@ class CreditScoreController:
             if not target_user:
                 return jsonify({'error': 'User not found'}), 404
             
-            # Get credit score using AI model
-            credit_score = self.ai_model.predict_credit_score(user_id, db_session)
+            # Get comprehensive credit score
+            score_data = self.credit_model.calculate_comprehensive_credit_score(user_id, db_session)
             
-            # Get factors affecting the score
-            factors = self.ai_model.get_score_factors(user_id, db_session)
-            
-            # Get improvement recommendations
-            recommendations = self.ai_model.get_improvement_recommendations(user_id, db_session)
-            
-            # Get user features for additional insights
-            user_features = self.ai_model.extract_user_features(user_id, db_session)
-            
-            # Calculate score range and rating
-            score_rating = self._get_score_rating(credit_score)
-            score_range = self._get_score_range(credit_score)
-            
-            response_data = {
-                'user_info': {
-                    'user_id': target_user.id,
-                    'username': target_user.username,
-                    'fullname': target_user.fullname,
-                    'email': target_user.email
-                },
-                'credit_score': credit_score,
-                'score_rating': score_rating,
-                'score_range': score_range,
-                'factors': factors,
-                'recommendations': recommendations,
-                'insights': self._generate_insights(user_features, credit_score),
-                'user_features': user_features,
-                'last_updated': 'now'
+            # Add user info to response
+            score_data['user_info'] = {
+                'user_id': target_user.id,
+                'username': target_user.username,
+                'fullname': target_user.fullname,
+                'email': target_user.email
             }
             
             db_session.close()
-            return jsonify(response_data), 200
+            return jsonify(score_data), 200
             
         except Exception as e:
             print(f"Error getting user credit score by ID: {str(e)}")
@@ -228,22 +183,27 @@ class CreditScoreController:
             
             users = db_session.query(User).all()
             scores = []
-            score_ranges = {'excellent': 0, 'good': 0, 'fair': 0, 'poor': 0}
+            score_ranges = {'excellent': 0, 'very_good': 0, 'good': 0, 'fair': 0, 'poor': 0, 'very_poor': 0}
             
             for user_obj in users:
                 try:
-                    credit_score = self.ai_model.predict_credit_score(user_obj.id, db_session)
+                    score_data = self.credit_model.calculate_comprehensive_credit_score(user_obj.id, db_session)
+                    credit_score = score_data['credit_score']
                     scores.append(credit_score)
                     
-                    # Count score ranges
+                    # Count score ranges based on comprehensive model
                     if credit_score >= 750:
                         score_ranges['excellent'] += 1
+                    elif credit_score >= 700:
+                        score_ranges['very_good'] += 1
                     elif credit_score >= 650:
                         score_ranges['good'] += 1
-                    elif credit_score >= 550:
+                    elif credit_score >= 600:
                         score_ranges['fair'] += 1
-                    else:
+                    elif credit_score >= 550:
                         score_ranges['poor'] += 1
+                    else:
+                        score_ranges['very_poor'] += 1
                         
                 except Exception:
                     pass
@@ -258,9 +218,11 @@ class CreditScoreController:
                     'score_distribution': score_ranges,
                     'score_ranges': {
                         'excellent': {'min': 750, 'max': 850, 'count': score_ranges['excellent']},
-                        'good': {'min': 650, 'max': 749, 'count': score_ranges['good']},
-                        'fair': {'min': 550, 'max': 649, 'count': score_ranges['fair']},
-                        'poor': {'min': 300, 'max': 549, 'count': score_ranges['poor']}
+                        'very_good': {'min': 700, 'max': 749, 'count': score_ranges['very_good']},
+                        'good': {'min': 650, 'max': 699, 'count': score_ranges['good']},
+                        'fair': {'min': 600, 'max': 649, 'count': score_ranges['fair']},
+                        'poor': {'min': 550, 'max': 599, 'count': score_ranges['poor']},
+                        'very_poor': {'min': 300, 'max': 549, 'count': score_ranges['very_poor']}
                     }
                 }
             else:
@@ -278,7 +240,7 @@ class CreditScoreController:
             return jsonify({'error': 'Failed to get credit score analytics'}), 500
 
     def retrain_model(self):
-        """Retrain the AI model with current data (admin only)"""
+        """Reinitialize the credit score model (admin only)"""
         try:
             user, error_response, status_code = self._get_authenticated_user()
             if error_response:
@@ -287,18 +249,17 @@ class CreditScoreController:
             if not user.admin:
                 return jsonify({'error': 'Admin privileges required'}), 403
                 
-            # This would be implemented to retrain with real data
-            # For now, we'll reinitialize with synthetic data
-            self.ai_model = AICredoScoreModel()
+            # Reinitialize the comprehensive model
+            self.credit_model = ComprehensiveCreditScoreModel()
             
             return jsonify({
-                'message': 'AI model retrained successfully',
-                'model_status': 'trained' if self.ai_model.is_trained else 'not trained'
+                'message': 'Credit score model reinitialized successfully',
+                'model_type': 'comprehensive_function_based'
             }), 200
             
         except Exception as e:
-            print(f"Error retraining model: {str(e)}")
-            return jsonify({'error': 'Failed to retrain model'}), 500
+            print(f"Error reinitializing model: {str(e)}")
+            return jsonify({'error': 'Failed to reinitialize model'}), 500
 
     def _get_score_rating(self, score):
         """Get rating based on credit score"""

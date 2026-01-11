@@ -19,6 +19,8 @@ class Loan(BaseModel, Base):
     loan_status = Column(String(50), default='pending')  # 'pending', 'approved', 'rejected', etc.
     repayment_period = Column(Integer, nullable=False)
     end_date = Column(DateTime)
+    purpose = Column(String(500))  # Purpose of the loan
+    credit_score = Column(Integer, default=0)  # AI-calculated credit score
 
     repayments = relationship("Repayment", backref="loan", cascade="all, delete, delete-orphan")
 
@@ -36,7 +38,9 @@ class Loan(BaseModel, Base):
             'interest_rate': float(self.interest_rate),
             'loan_status': self.loan_status,
             'repayment_period': self.repayment_period,
-            'end_date': self.end_date.isoformat() if self.end_date else None
+            'end_date': self.end_date.isoformat() if self.end_date else None,
+            'purpose': self.purpose,
+            'credit_score': self.credit_score
         }
 
         # Add account information if it's loaded
