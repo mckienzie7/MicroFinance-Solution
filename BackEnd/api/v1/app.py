@@ -12,19 +12,24 @@ from flasgger import Swagger
 
 app = Flask(__name__)
 app.config['JSONIFY_PRETTYPRINT_REGULAR'] = True
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
+
 app.register_blueprint(app_views, url_prefix='/api/v1')
 app.register_blueprint(stripe_views, url_prefix='/api/v1')
 app.register_blueprint(company_balance_bp, url_prefix='/api/v1/company')
 
 # Configure CORS to allow requests from any origin
-# This is safe because we're using a proxy in the frontend
+# More permissive CORS configuration for file uploads
 CORS(app, resources={
     r"/api/*": {
-        "origins": ["http://localhost:*", "http://127.0.0.1:*", "http://10.0.2.2:*"],
+        "origins": "*",  # Allow all origins in development
         "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-        "allow_headers": ["Content-Type", "Authorization"]
+        "allow_headers": ["Content-Type", "Authorization", "Accept"],
+        "expose_headers": ["Content-Type", "Authorization"],
+        "supports_credentials": True,
+        "max_age": 3600
     }
-}, supports_credentials=True)
+})
 
 
 @app.teardown_appcontext

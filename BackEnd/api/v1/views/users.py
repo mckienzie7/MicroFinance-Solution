@@ -138,12 +138,16 @@ def put_user(user_id):
     if not request.get_json():
         abort(400, description="Not a JSON")
 
-    ignore = ['id', 'email', 'created_at', 'updated_at']
+    # Fields that cannot be updated
+    ignore = ['id', 'email', 'username', 'created_at', 'updated_at', 'password', 'session_id', 'reset_token']
 
     data = request.get_json()
     for key, value in data.items():
         if key not in ignore:
-            setattr(user, key, value)
+            # Handle None values properly
+            if value is not None or key in ['bio', 'location', 'gender', 'interests', 'hobbies', 'preferences']:
+                setattr(user, key, value)
+    
     storage.save()
     return make_response(jsonify(user.to_dict()), 200)
 
@@ -567,6 +571,88 @@ def download_fayda_document(user_id):
             download_name=original_filename,
             mimetype=mimetype
         )
+    except Exception as e:
+        return make_response(jsonify({'error': str(e)}), 500)
+
+@app_views.route('/users/<user_id>/id-card-front', methods=['POST', 'OPTIONS'], strict_slashes=False)
+def upload_id_card_front(user_id):
+    """
+    Upload or update user's ID card front image
+    """
+    # Handle OPTIONS request for CORS
+    if request.method == 'OPTIONS':
+        response = make_response('', 200)
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        response.headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+        return response
+    
+    user = storage.get(User, user_id)
+    if not user:
+        abort(404)
+
+    if 'id_card_front' not in request.files:
+        return make_response(jsonify({'error': 'No file provided'}), 400)
+
+    file = request.files['id_card_front']
+    if file.filename == '':
+        return make_response(jsonify({'error': 'No file selected'}), 400)
+
+    # Check if file is an image
+    allowed_extensions = {'png', 'jpg', 'jpeg'}
+    if '.' not in file.filename or \
+       file.filename.rsplit('.', 1)[1].lower() not in allowed_extensions:
+        return make_response(jsonify({'error': 'Invalid file type'}), 400)
+
+    try:
+        if user.update_id_card_front(file):
+            storage.save()
+            return make_response(jsonify({
+                'message': 'ID card front updated successfully',
+                'id_card_front_url': user.get_id_card_front_url()
+            }), 200)
+        return make_response(jsonify({'error': 'Failed to update ID card front'}), 400)
+    except Exception as e:
+        return make_response(jsonify({'error': str(e)}), 500)
+
+@app_views.route('/users/<user_id>/id-card-back', methods=['POST', 'OPTIONS'], strict_slashes=False)
+def upload_id_card_back(user_id):
+    """
+    Upload or update user's ID card back image
+    """
+    # Handle OPTIONS request for CORS
+    if request.method == 'OPTIONS':
+        response = make_response('', 200)
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        response.headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+        return response
+    
+    user = storage.get(User, user_id)
+    if not user:
+        abort(404)
+
+    if 'id_card_back' not in request.files:
+        return make_response(jsonify({'error': 'No file provided'}), 400)
+
+    file = request.files['id_card_back']
+    if file.filename == '':
+        return make_response(jsonify({'error': 'No file selected'}), 400)
+
+    # Check if file is an image
+    allowed_extensions = {'png', 'jpg', 'jpeg'}
+    if '.' not in file.filename or \
+       file.filename.rsplit('.', 1)[1].lower() not in allowed_extensions:
+        return make_response(jsonify({'error': 'Invalid file type'}), 400)
+
+    try:
+        if user.update_id_card_back(file):
+            storage.save()
+            return make_response(jsonify({
+                'message': 'ID card back updated successfully',
+                'id_card_back_url': user.get_id_card_back_url()
+            }), 200)
+        return make_response(jsonify({'error': 'Failed to update ID card back'}), 400)
     except Exception as e:
         return make_response(jsonify({'error': str(e)}), 500)
 
